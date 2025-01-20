@@ -11,7 +11,8 @@ func SetupRouter() *mux.Router {
 	r := mux.NewRouter()
 
 	// Define routes
-	r.HandleFunc("/api/hello", handler.HelloHandler).Methods("GET")
+	r.HandleFunc("/users", handler.GetUsersHandler).Methods("GET")
+	r.HandleFunc("/users/{id}", handler.GetUsersByIdHandler).Methods("GET")
 
 	return r
 }
