@@ -1,0 +1,15 @@
+# Ignore Go build artifacts
+/bin/
+*.exe
+*.out
+
+# Ignore Go-specific directories
+/pkg/
+vendor/
+
+# Ignore IDE and OS files
+*.env
+*.log
+*.swp
+.DS_Store
+.idea/

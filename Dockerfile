@@ -1,0 +1,32 @@
+# Stage 1: Build the Go binary
+FROM golang:1.23 AS builder
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the Go module files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy the source code
+COPY . .
+
+# Build the application
+RUN go build -o apollo .
+
+# Stage 2: Create a lightweight image for deployment
+FROM debian:bookworm-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy the built binary from the builder stage
+COPY --from=builder /app/apollo .
+
+# Expose the port the app runs on
+EXPOSE 8080
+
+# Start the application
+CMD ["./apollo"]

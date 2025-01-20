@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"apollo/db"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,9 +11,30 @@ import (
 
 // GetUsersHandler handles the ger users GET request
 func GetUsersHandler(w http.ResponseWriter, r *http.Request) {
-	response := map[string]string{"message": "Getting Users!"}
+	rows, err := db.DB.Query(r.Context(), "SELECT id, name FROM users")
+	if err != nil {
+		http.Error(w, "Failed to query database", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	users := []map[string]interface{}{}
+	for rows.Next() {
+		var id int
+		var name string
+		err := rows.Scan(&id, &name)
+		if err != nil {
+			http.Error(w, "Failed to scan row", http.StatusInternalServerError)
+			return
+		}
+		users = append(users, map[string]interface{}{
+			"id":   id,
+			"name": name,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(users)
 }
 
 // GetUsersHandler handles the ger users GET request

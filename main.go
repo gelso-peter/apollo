@@ -1,14 +1,33 @@
 package main
 
 import (
+	"apollo/db"
 	"apollo/server"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
+	// Connect to the database
+	db.ConnectDB()
+	defer db.CloseDB()
+
 	// Start the server
 	err := server.StartServer()
 	if err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		log.Fatalf("Error starting server: %v", err)
 	}
+
+	// Graceful shutdown on interrupt signal
+	gracefulShutdown()
+}
+
+// gracefulShutdown handles cleanup on termination signals
+func gracefulShutdown() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	<-c
+	log.Println("Shutting down...")
 }
