@@ -2,6 +2,7 @@ package main
 
 import (
 	"apollo/db"
+	"apollo/db/migrations"
 	"apollo/server"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ func main() {
 	// Connect to the database
 	db.ConnectDB()
 	defer db.CloseDB()
+	migrations.RunMigrations()
 
 	// Start the server
 	err := server.StartServer()

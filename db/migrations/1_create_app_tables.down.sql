@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS game_pick;
+DROP TABLE IF EXISTS season;
+DROP TYPE IF EXISTS Sport;
+DROP TABLE IF EXISTS league_user_association;
+DROP TABLE IF EXISTS league;
+DROP TABLE IF EXISTS app_user;

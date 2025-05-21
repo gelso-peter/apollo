@@ -37,8 +37,19 @@ func GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// GetUsersHandler handles the ger users GET request
+// GetUsersHandler handles the get users GET request
 func GetUsersByIdHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userId := vars["id"]
+	message := fmt.Sprintf("Getting user by ID: %s", userId)
+
+	response := map[string]string{"message": message}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetUsersHandler handles the get users GET request
+func PostGroup(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userId := vars["id"]
 	message := fmt.Sprintf("Getting user by ID: %s", userId)
