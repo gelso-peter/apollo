@@ -17,12 +17,24 @@ func SetupRouter() *mux.Router {
 	pool := db.DB
 
 	// Instantiate Repositories
-	leagueRepository := repository.NewLeagueRepository(pool)
-	leagueHandler := &handler.LeagueHandler{Repo: leagueRepository}
 
-	// Instantiate routes
-	r.HandleFunc("/users", handler.GetUsersHandler).Methods("GET")
-	r.HandleFunc("/users/{id}", handler.GetUsersByIdHandler).Methods("GET")
+	userRepository := repository.NewUserRepository(pool)
+	meRepository := repository.NewMeRepository(pool)
+	leagueRepository := repository.NewLeagueRepository(pool)
+	userLeagueAssociationRepository := repository.NewUserLeagueAssociationRepository(pool)
+
+	// Instantiate Handlers
+	userHandler := &handler.UserHandler{Repo: userRepository}
+	meHandler := &handler.MeHandler{Repo: meRepository}
+	leagueHandler := &handler.LeagueHandler{League_Repo: leagueRepository, User_League_Association_Repo: userLeagueAssociationRepository}
+
+	// me routes
+	r.HandleFunc("/me/leagues", meHandler.GetMeLeagues).Methods("GET")
+
+	// user routes
+	r.HandleFunc("/user", userHandler.PostCreateUser).Methods("POST")
+
+	// League routes
 	r.HandleFunc("/league", leagueHandler.PostLeague).Methods("POST")
 
 	return r

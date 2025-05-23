@@ -4,24 +4,21 @@ CREATE TABLE app_user (
     last_name TEXT NOT NULL,
     email TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    meta_seq INTEGER NOT NULL DEFAULT 0
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE league (
     id UUID PRIMARY KEY,
     league_name TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    meta_seq INTEGER NOT NULL DEFAULT 0
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE league_user_association (
-    league_id UUID NOT NULL,
+CREATE TABLE user_league_association (
     user_id UUID NOT NULL,
+    league_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    meta_seq INTEGER NOT NULL DEFAULT 0,
 
     PRIMARY KEY (league_id, user_id),
     FOREIGN KEY (league_id) REFERENCES league(id),
@@ -37,8 +34,7 @@ CREATE TABLE season (
     year_end INTEGER NOT NULL,
     sport Sport NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    meta_seq INTEGER NOT NULL DEFAULT 0
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE game_pick (
@@ -48,7 +44,8 @@ CREATE TABLE game_pick (
     opponent_team_name TEXT NOT NULL,
     spread_selection INTEGER NOT NULL,
     spread_result INTEGER NOT NULL,
+    points_assigned INTEGER NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    meta_seq INTEGER NOT NULL DEFAULT 0
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
