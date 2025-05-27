@@ -2,13 +2,44 @@
 #
 # https://gqlgen.com/getting-started/
 
+# GET
+type Mutation {
+  CreateGamePick(input: NewGamePickInput!): GamePick!
+}
+
+# POST
+type Query {
+  GetLeagueSeasonsById(leagueID: ID!): [Season!]!
+  GetGamePicksByWeek(season_id: ID!, week: Int!): [GamePick!]!
+}
+
 type Season {
   id: ID!
   year_start: String!
   year_end: String!
   sport: String!
 }
+type GamePick {
+  id: ID!
+  season_id: ID!
+  week_id: ID!
+  user_id: ID!
+  selected_team_name: String!
+  opponent_team_name: String!
+  spread_selection: Int!
+  spread_result: Int!
+  points_assigned: Int!
+  created_at: String!
+  updated_at: String!
+}
 
-type Query {
-  GetLeagueSeasonsById(leagueID: ID!): [Season!]!
+input NewGamePickInput {
+  season_id: ID!
+  week_id: ID!
+  user_id: ID!
+  selected_team_name: String!
+  opponent_team_name: String!
+  spread_selection: Int!
+  spread_result: Int!
+  points_assigned: Int!
 }

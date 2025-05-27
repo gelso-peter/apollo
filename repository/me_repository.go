@@ -24,7 +24,7 @@ func (ur *MeRepository) GetMeLeagues(ctx context.Context) ([]*models.League, err
 		WHERE ula.user_id = $1;
 	`
 
-	rows, err := ur.DB.Query(ctx, query, "b8a38c51-872e-4441-b4a1-417cf5861663")
+	rows, err := ur.DB.Query(ctx, query, "0bcc15f3-c393-430d-9c36-f8348936b64d")
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}

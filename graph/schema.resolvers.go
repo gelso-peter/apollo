@@ -7,7 +7,47 @@ package graph
 import (
 	"apollo/graph/model"
 	"context"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
 )
+
+// CreateGamePick is the resolver for the CreateGamePick field.
+func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGamePickInput) (*model.GamePick, error) {
+	id := uuid.New()
+	userId := "0bcc15f3-c393-430d-9c36-f8348936b64d"
+
+	_, err := r.DB.Exec(ctx, `
+		INSERT INTO game_pick (
+			id, week_id, week_number, user_id,
+			selected_team_name, opponent_team_name,
+			spread_selection, spread_result, points_assigned,
+			created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now()
+		)
+	`, id, input.WeekID, input.WeekID, userId,
+		input.SelectedTeamName, input.OpponentTeamName,
+		input.SpreadSelection, input.SpreadResult, input.PointsAssigned)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create game pick: %w", err)
+	}
+
+	return &model.GamePick{
+		ID:               id.String(),
+		WeekID:           input.WeekID,
+		UserID:           userId,
+		SelectedTeamName: input.SelectedTeamName,
+		OpponentTeamName: input.OpponentTeamName,
+		SpreadSelection:  input.SpreadSelection,
+		SpreadResult:     input.SpreadResult,
+		PointsAssigned:   input.PointsAssigned,
+		CreatedAt:        time.Now().Format(time.RFC3339),
+		UpdatedAt:        time.Now().Format(time.RFC3339),
+	}, nil
+}
 
 // GetLeagueSeasonsByID is the resolver for the GetLeagueSeasonsById field.
 func (r *queryResolver) GetLeagueSeasonsByID(ctx context.Context, leagueID string) ([]*model.Season, error) {
@@ -37,7 +77,16 @@ func (r *queryResolver) GetLeagueSeasonsByID(ctx context.Context, leagueID strin
 	return seasons, nil
 }
 
+// GetGamePicksByWeek is the resolver for the GetGamePicksByWeek field.
+func (r *queryResolver) GetGamePicksByWeek(ctx context.Context, seasonID string, week int32) ([]*model.GamePick, error) {
+	panic("unimplemented")
+}
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

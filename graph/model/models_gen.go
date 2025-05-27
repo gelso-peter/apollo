@@ -2,6 +2,34 @@
 
 package model
 
+type GamePick struct {
+	ID               string `json:"id"`
+	SeasonID         string `json:"season_id"`
+	WeekID           string `json:"week_id"`
+	UserID           string `json:"user_id"`
+	SelectedTeamName string `json:"selected_team_name"`
+	OpponentTeamName string `json:"opponent_team_name"`
+	SpreadSelection  int32  `json:"spread_selection"`
+	SpreadResult     int32  `json:"spread_result"`
+	PointsAssigned   int32  `json:"points_assigned"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+}
+
+type Mutation struct {
+}
+
+type NewGamePickInput struct {
+	SeasonID         string `json:"season_id"`
+	WeekID           string `json:"week_id"`
+	UserID           string `json:"user_id"`
+	SelectedTeamName string `json:"selected_team_name"`
+	OpponentTeamName string `json:"opponent_team_name"`
+	SpreadSelection  int32  `json:"spread_selection"`
+	SpreadResult     int32  `json:"spread_result"`
+	PointsAssigned   int32  `json:"points_assigned"`
+}
+
 type Query struct {
 }
 

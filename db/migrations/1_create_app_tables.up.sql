@@ -37,16 +37,26 @@ CREATE TABLE season (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE season_week (
+    id UUID PRIMARY KEY,
+    season_id UUID NOT NULL REFERENCES season(id),
+    week_number INTEGER NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE game_pick (
     id UUID PRIMARY KEY,
     season_id UUID NOT NULL REFERENCES season(id),
+    week_number UUID REFERENCES season_week(id),
     user_id UUID NOT NULL REFERENCES app_user(id),
     selected_team_name TEXT NOT NULL,
     opponent_team_name TEXT NOT NULL,
     spread_selection INTEGER NOT NULL,
     spread_result INTEGER NOT NULL,
     points_assigned INTEGER NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
