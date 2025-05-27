@@ -37,7 +37,7 @@ func (lh *LeagueHandler) PostLeague(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: eventually userId will be in the context.  For now we are hardcoding it
 	associationToCreate := models.UserLeagueAssociation{
-		User_Id:   "ef4be065-4d50-4c9c-bc33-901c587730c0",
+		User_Id:   "b8a38c51-872e-4441-b4a1-417cf5861663",
 		League_id: league.ID,
 	}
 
