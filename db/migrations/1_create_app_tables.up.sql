@@ -40,6 +40,7 @@ CREATE TABLE season (
 CREATE TABLE game_pick (
     id UUID PRIMARY KEY,
     season_id UUID NOT NULL REFERENCES season(id),
+    user_id UUID NOT NULL REFERENCES app_user(id),
     selected_team_name TEXT NOT NULL,
     opponent_team_name TEXT NOT NULL,
     spread_selection INTEGER NOT NULL,
