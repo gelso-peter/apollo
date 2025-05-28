@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"apollo/internal/contextutil"
 	"apollo/models"
 	"apollo/repository"
 )
@@ -17,16 +18,24 @@ type LeagueHandler struct {
 
 // Create League Handler
 func (lh *LeagueHandler) PostLeague(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
+	userID, ok := contextutil.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized from League", http.StatusUnauthorized)
+		return
+	}
 
 	var input struct {
 		League_Name string `json:"league_name"`
 	}
+
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
+
+	// Create the timeout context for DB operations
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
 
 	// Create the League
 	league, err := lh.League_Repo.CreateLeague(ctx, input.League_Name)
@@ -35,9 +44,8 @@ func (lh *LeagueHandler) PostLeague(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: eventually userId will be in the context.  For now we are hardcoding it
 	associationToCreate := models.UserLeagueAssociation{
-		User_Id:   "0bcc15f3-c393-430d-9c36-f8348936b64d",
+		User_Id:   userID,
 		League_id: league.ID,
 	}
 

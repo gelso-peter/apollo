@@ -3,6 +3,7 @@ package router
 import (
 	"apollo/db"
 	"apollo/handler"
+	"apollo/middleware"
 
 	"apollo/repository"
 
@@ -28,14 +29,19 @@ func SetupRouter() *mux.Router {
 	meHandler := &handler.MeHandler{Repo: meRepository}
 	leagueHandler := &handler.LeagueHandler{League_Repo: leagueRepository, User_League_Association_Repo: userLeagueAssociationRepository}
 
-	// me routes
-	r.HandleFunc("/me/leagues", meHandler.GetMeLeagues).Methods("GET")
+	// Public routes
+	r.HandleFunc("/signup", userHandler.SignUp).Methods("POST")
+	r.HandleFunc("/login", userHandler.Login).Methods("POST")
 
-	// user routes
-	r.HandleFunc("/user", userHandler.PostCreateUser).Methods("POST")
+	// Protected routes
+	protected := r.PathPrefix("/").Subrouter()
+	protected.Use(middleware.JWTMiddleware)
+
+	// me routes
+	protected.HandleFunc("/me/leagues", meHandler.GetMeLeagues).Methods("GET")
 
 	// League routes
-	r.HandleFunc("/league", leagueHandler.PostLeague).Methods("POST")
+	protected.HandleFunc("/league", leagueHandler.PostLeague).Methods("POST")
 
 	return r
 }

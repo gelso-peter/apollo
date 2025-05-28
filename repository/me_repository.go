@@ -16,7 +16,7 @@ func NewMeRepository(pool *pgxpool.Pool) *MeRepository {
 	return &MeRepository{DB: pool}
 }
 
-func (ur *MeRepository) GetMeLeagues(ctx context.Context) ([]*models.League, error) {
+func (ur *MeRepository) GetMeLeagues(ctx context.Context, userID string) ([]*models.League, error) {
 	query := `
 		SELECT l.id, l.league_name
 		FROM league l
@@ -24,7 +24,7 @@ func (ur *MeRepository) GetMeLeagues(ctx context.Context) ([]*models.League, err
 		WHERE ula.user_id = $1;
 	`
 
-	rows, err := ur.DB.Query(ctx, query, "0bcc15f3-c393-430d-9c36-f8348936b64d")
+	rows, err := ur.DB.Query(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %w", err)
 	}

@@ -17,52 +17,15 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/joho/godotenv"
 )
 
 const defaultPort = "8080"
 
-// func main() {
-// 	// Connect to the database
-
-// 	port := os.Getenv("PORT")
-// 	if port == "" {
-// 		port = defaultPort
-// 	}
-
-// 	db.ConnectDB()
-// 	defer db.CloseDB()
-// 	migrations.RunMigrations()
-
-// 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
-
-// 	srv.AddTransport(transport.Options{})
-// 	srv.AddTransport(transport.GET{})
-// 	srv.AddTransport(transport.POST{})
-
-// 	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
-
-// 	srv.Use(extension.Introspection{})
-// 	srv.Use(extension.AutomaticPersistedQuery{
-// 		Cache: lru.New[string](100),
-// 	})
-
-// 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-// 	http.Handle("/query", srv)
-
-// 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-// 	log.Fatal(http.ListenAndServe(":"+port, nil))
-
-// 	// Start the server
-// 	err := server.StartServer()
-// 	if err != nil {
-// 		log.Fatalf("Error starting server: %v", err)
-// 	}
-
-// 	// Graceful shutdown on interrupt signal
-// 	gracefulShutdown()
-// }
-
 func main() {
+	// load env variables
+	_ = godotenv.Load()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
