@@ -63,6 +63,7 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		CreateGamePick func(childComplexity int, input model.NewGamePickInput) int
+		CreateSeason   func(childComplexity int, input model.NewSeasonInput) int
 	}
 
 	Query struct {
@@ -72,6 +73,7 @@ type ComplexityRoot struct {
 
 	Season struct {
 		ID        func(childComplexity int) int
+		LeagueID  func(childComplexity int) int
 		Sport     func(childComplexity int) int
 		YearEnd   func(childComplexity int) int
 		YearStart func(childComplexity int) int
@@ -80,6 +82,7 @@ type ComplexityRoot struct {
 
 type MutationResolver interface {
 	CreateGamePick(ctx context.Context, input model.NewGamePickInput) (*model.GamePick, error)
+	CreateSeason(ctx context.Context, input model.NewSeasonInput) (*model.Season, error)
 }
 type QueryResolver interface {
 	GetLeagueSeasonsByID(ctx context.Context, leagueID string) ([]*model.Season, error)
@@ -194,6 +197,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.CreateGamePick(childComplexity, args["input"].(model.NewGamePickInput)), true
 
+	case "Mutation.CreateSeason":
+		if e.complexity.Mutation.CreateSeason == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_CreateSeason_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateSeason(childComplexity, args["input"].(model.NewSeasonInput)), true
+
 	case "Query.GetGamePicksByWeek":
 		if e.complexity.Query.GetGamePicksByWeek == nil {
 			break
@@ -225,6 +240,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Season.ID(childComplexity), true
 
+	case "Season.league_id":
+		if e.complexity.Season.LeagueID == nil {
+			break
+		}
+
+		return e.complexity.Season.LeagueID(childComplexity), true
+
 	case "Season.sport":
 		if e.complexity.Season.Sport == nil {
 			break
@@ -255,6 +277,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputNewGamePickInput,
+		ec.unmarshalInputNewSeasonInput,
 	)
 	first := true
 
@@ -391,6 +414,29 @@ func (ec *executionContext) field_Mutation_CreateGamePick_argsInput(
 	}
 
 	var zeroVal model.NewGamePickInput
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_CreateSeason_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_CreateSeason_argsInput(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_CreateSeason_argsInput(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (model.NewSeasonInput, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("input"))
+	if tmp, ok := rawArgs["input"]; ok {
+		return ec.unmarshalNNewSeasonInput2apolloᚋgraphᚋmodelᚐNewSeasonInput(ctx, tmp)
+	}
+
+	var zeroVal model.NewSeasonInput
 	return zeroVal, nil
 }
 
@@ -1144,6 +1190,73 @@ func (ec *executionContext) fieldContext_Mutation_CreateGamePick(ctx context.Con
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_CreateSeason(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_CreateSeason(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateSeason(rctx, fc.Args["input"].(model.NewSeasonInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Season)
+	fc.Result = res
+	return ec.marshalNSeason2ᚖapolloᚋgraphᚋmodelᚐSeason(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_CreateSeason(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Season_id(ctx, field)
+			case "league_id":
+				return ec.fieldContext_Season_league_id(ctx, field)
+			case "year_start":
+				return ec.fieldContext_Season_year_start(ctx, field)
+			case "year_end":
+				return ec.fieldContext_Season_year_end(ctx, field)
+			case "sport":
+				return ec.fieldContext_Season_sport(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Season", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_CreateSeason_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_GetLeagueSeasonsById(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_GetLeagueSeasonsById(ctx, field)
 	if err != nil {
@@ -1185,6 +1298,8 @@ func (ec *executionContext) fieldContext_Query_GetLeagueSeasonsById(ctx context.
 			switch field.Name {
 			case "id":
 				return ec.fieldContext_Season_id(ctx, field)
+			case "league_id":
+				return ec.fieldContext_Season_league_id(ctx, field)
 			case "year_start":
 				return ec.fieldContext_Season_year_start(ctx, field)
 			case "year_end":
@@ -1451,6 +1566,50 @@ func (ec *executionContext) _Season_id(ctx context.Context, field graphql.Collec
 }
 
 func (ec *executionContext) fieldContext_Season_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Season",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Season_league_id(ctx context.Context, field graphql.CollectedField, obj *model.Season) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Season_league_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.LeagueID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Season_league_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Season",
 		Field:      field,
@@ -3553,7 +3712,7 @@ func (ec *executionContext) unmarshalInputNewGamePickInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"season_id", "week_id", "user_id", "selected_team_name", "opponent_team_name", "spread_selection", "spread_result", "points_assigned"}
+	fieldsInOrder := [...]string{"season_id", "week_id", "selected_team_name", "opponent_team_name", "spread_selection", "spread_result", "points_assigned"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -3574,13 +3733,6 @@ func (ec *executionContext) unmarshalInputNewGamePickInput(ctx context.Context, 
 				return it, err
 			}
 			it.WeekID = data
-		case "user_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("user_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.UserID = data
 		case "selected_team_name":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("selected_team_name"))
 			data, err := ec.unmarshalNString2string(ctx, v)
@@ -3616,6 +3768,54 @@ func (ec *executionContext) unmarshalInputNewGamePickInput(ctx context.Context, 
 				return it, err
 			}
 			it.PointsAssigned = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputNewSeasonInput(ctx context.Context, obj any) (model.NewSeasonInput, error) {
+	var it model.NewSeasonInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"league_id", "year_start", "year_end", "sport"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "league_id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("league_id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.LeagueID = data
+		case "year_start":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("year_start"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.YearStart = data
+		case "year_end":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("year_end"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.YearEnd = data
+		case "sport":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sport"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Sport = data
 		}
 	}
 
@@ -3741,6 +3941,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "CreateGamePick":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_CreateGamePick(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "CreateSeason":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_CreateSeason(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -3875,6 +4082,11 @@ func (ec *executionContext) _Season(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = graphql.MarshalString("Season")
 		case "id":
 			out.Values[i] = ec._Season_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "league_id":
+			out.Values[i] = ec._Season_league_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4360,6 +4572,15 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 func (ec *executionContext) unmarshalNNewGamePickInput2apolloᚋgraphᚋmodelᚐNewGamePickInput(ctx context.Context, v any) (model.NewGamePickInput, error) {
 	res, err := ec.unmarshalInputNewGamePickInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNNewSeasonInput2apolloᚋgraphᚋmodelᚐNewSeasonInput(ctx context.Context, v any) (model.NewSeasonInput, error) {
+	res, err := ec.unmarshalInputNewSeasonInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSeason2apolloᚋgraphᚋmodelᚐSeason(ctx context.Context, sel ast.SelectionSet, v model.Season) graphql.Marshaler {
+	return ec._Season(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNSeason2ᚕᚖapolloᚋgraphᚋmodelᚐSeasonᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Season) graphql.Marshaler {

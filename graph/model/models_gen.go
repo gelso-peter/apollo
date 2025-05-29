@@ -22,7 +22,6 @@ type Mutation struct {
 type NewGamePickInput struct {
 	SeasonID         string `json:"season_id"`
 	WeekID           string `json:"week_id"`
-	UserID           string `json:"user_id"`
 	SelectedTeamName string `json:"selected_team_name"`
 	OpponentTeamName string `json:"opponent_team_name"`
 	SpreadSelection  int32  `json:"spread_selection"`
@@ -30,11 +29,19 @@ type NewGamePickInput struct {
 	PointsAssigned   int32  `json:"points_assigned"`
 }
 
+type NewSeasonInput struct {
+	LeagueID  string `json:"league_id"`
+	YearStart string `json:"year_start"`
+	YearEnd   string `json:"year_end"`
+	Sport     string `json:"sport"`
+}
+
 type Query struct {
 }
 
 type Season struct {
 	ID        string `json:"id"`
+	LeagueID  string `json:"league_id"`
 	YearStart string `json:"year_start"`
 	YearEnd   string `json:"year_end"`
 	Sport     string `json:"sport"`

@@ -5,6 +5,7 @@
 # GET
 type Mutation {
   CreateGamePick(input: NewGamePickInput!): GamePick!
+  CreateSeason(input: NewSeasonInput!): Season!
 }
 
 # POST
@@ -15,10 +16,19 @@ type Query {
 
 type Season {
   id: ID!
+  league_id: ID!
   year_start: String!
   year_end: String!
   sport: String!
 }
+
+input NewSeasonInput {
+  league_id: ID!
+  year_start: String!
+  year_end: String!
+  sport: String!
+}
+
 type GamePick {
   id: ID!
   season_id: ID!
@@ -36,7 +46,6 @@ type GamePick {
 input NewGamePickInput {
   season_id: ID!
   week_id: ID!
-  user_id: ID!
   selected_team_name: String!
   opponent_team_name: String!
   spread_selection: Int!

@@ -6,6 +6,7 @@ package graph
 
 import (
 	"apollo/graph/model"
+	"apollo/internal/contextutil"
 	"context"
 	"fmt"
 	"time"
@@ -16,7 +17,10 @@ import (
 // CreateGamePick is the resolver for the CreateGamePick field.
 func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGamePickInput) (*model.GamePick, error) {
 	id := uuid.New()
-	userId := "0bcc15f3-c393-430d-9c36-f8348936b64d"
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
 
 	_, err := r.DB.Exec(ctx, `
 		INSERT INTO game_pick (
@@ -27,7 +31,7 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now()
 		)
-	`, id, input.WeekID, input.WeekID, userId,
+	`, id, input.WeekID, input.WeekID, userID,
 		input.SelectedTeamName, input.OpponentTeamName,
 		input.SpreadSelection, input.SpreadResult, input.PointsAssigned)
 
@@ -38,7 +42,6 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 	return &model.GamePick{
 		ID:               id.String(),
 		WeekID:           input.WeekID,
-		UserID:           userId,
 		SelectedTeamName: input.SelectedTeamName,
 		OpponentTeamName: input.OpponentTeamName,
 		SpreadSelection:  input.SpreadSelection,
@@ -46,6 +49,33 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 		PointsAssigned:   input.PointsAssigned,
 		CreatedAt:        time.Now().Format(time.RFC3339),
 		UpdatedAt:        time.Now().Format(time.RFC3339),
+	}, nil
+}
+
+// CreateSeason is the resolver for the CreateSeason field.
+func (r *mutationResolver) CreateSeason(ctx context.Context, input model.NewSeasonInput) (*model.Season, error) {
+	id := uuid.New()
+
+	_, err := r.DB.Exec(ctx, `
+		INSERT INTO season (
+			id, league_id, year_start, year_end,
+			sport, created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, now(), now()
+		)
+	`, id, input.LeagueID, input.YearStart, input.YearEnd,
+		input.Sport)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create game pick: %w", err)
+	}
+
+	return &model.Season{
+		ID:        id.String(),
+		LeagueID:  input.LeagueID,
+		YearStart: input.YearStart,
+		YearEnd:   input.YearEnd,
+		Sport:     input.Sport,
 	}, nil
 }
 
