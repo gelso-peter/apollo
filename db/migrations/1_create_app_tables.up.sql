@@ -51,7 +51,7 @@ CREATE TABLE season_week (
 CREATE TABLE game_pick (
     id UUID PRIMARY KEY,
     season_id UUID NOT NULL REFERENCES season(id),
-    week_number UUID REFERENCES season_week(id),
+    week_id UUID REFERENCES season_week(id),
     user_id UUID NOT NULL REFERENCES app_user(id),
     selected_team_name TEXT NOT NULL,
     opponent_team_name TEXT NOT NULL,

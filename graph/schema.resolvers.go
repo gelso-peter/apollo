@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // CreateGamePick is the resolver for the CreateGamePick field.
@@ -24,14 +26,14 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 
 	_, err := r.DB.Exec(ctx, `
 		INSERT INTO game_pick (
-			id, week_id, week_number, user_id,
+			id, season_id, week_id, user_id,
 			selected_team_name, opponent_team_name,
 			spread_selection, spread_result, points_assigned,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now()
 		)
-	`, id, input.WeekID, input.WeekID, userID,
+	`, id, input.SeasonID, input.WeekID, userID,
 		input.SelectedTeamName, input.OpponentTeamName,
 		input.SpreadSelection, input.SpreadResult, input.PointsAssigned)
 
@@ -67,7 +69,13 @@ func (r *mutationResolver) CreateSeason(ctx context.Context, input model.NewSeas
 		input.Sport)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to create game pick: %w", err)
+		return nil, fmt.Errorf("failed to create season: %w", err)
+	}
+
+	// // TODO: Right now just supporting football
+	err = createSeasonWeeks(ctx, r.DB, id, int(input.YearStart), 17)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create season weeks: %w", err)
 	}
 
 	return &model.Season{
@@ -77,6 +85,40 @@ func (r *mutationResolver) CreateSeason(ctx context.Context, input model.NewSeas
 		YearEnd:   input.YearEnd,
 		Sport:     input.Sport,
 	}, nil
+}
+
+func createSeasonWeeks(ctx context.Context, db *pgxpool.Pool, seasonID uuid.UUID, yearStart int, numberOfWeeks int) error {
+	// Set first week start date (e.g. first Sunday of September)
+	startDate := time.Date(yearStart, time.September, 5, 0, 0, 0, 0, time.UTC)
+	for startDate.Weekday() != time.Thursday {
+		startDate = startDate.AddDate(0, 0, 1) // add 1 day
+	}
+
+	batch := &pgx.Batch{}
+
+	for i := 0; i < numberOfWeeks; i++ {
+		weekID := uuid.New()
+		weekStart := startDate.AddDate(0, 0, i*7)
+		weekEnd := weekStart.AddDate(0, 0, 6)
+
+		batch.Queue(`
+			INSERT INTO season_week (
+				id, season_id, week_number, start_date, end_date,
+				created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, now(), now())
+		`, weekID, seasonID, i+1, weekStart, weekEnd)
+	}
+
+	br := db.SendBatch(ctx, batch)
+	defer br.Close()
+
+	for i := 0; i < numberOfWeeks; i++ {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("failed to insert week %d: %w", i+1, err)
+		}
+	}
+
+	return nil
 }
 
 // GetLeagueSeasonsByID is the resolver for the GetLeagueSeasonsById field.

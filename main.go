@@ -4,6 +4,7 @@ import (
 	"apollo/db"
 	"apollo/db/migrations"
 	"apollo/graph"
+	"apollo/middleware"
 	"apollo/server"
 	"context"
 	"log"
@@ -42,11 +43,14 @@ func main() {
 	graphQLServer.AddTransport(transport.POST{})
 	graphQLServer.Use(extension.Introspection{})
 
+	// Wrap the GraphQL handler with your JWT middleware
+	protectedGraphQL := middleware.JWTMiddleware(graphQLServer)
+
 	// Setup REST and GraphQL together in one mux
 	mainMux := http.NewServeMux()
 
 	// GraphQL routes
-	mainMux.Handle("/query", graphQLServer)
+	mainMux.Handle("/query", protectedGraphQL)
 	mainMux.Handle("/", playground.Handler("GraphQL playground", "/query"))
 
 	// REST routes mounted under a prefix (e.g., "/api")

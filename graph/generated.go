@@ -1648,9 +1648,9 @@ func (ec *executionContext) _Season_year_start(ctx context.Context, field graphq
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(int32)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Season_year_start(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1660,7 +1660,7 @@ func (ec *executionContext) fieldContext_Season_year_start(_ context.Context, fi
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -1692,9 +1692,9 @@ func (ec *executionContext) _Season_year_end(ctx context.Context, field graphql.
 		}
 		return graphql.Null
 	}
-	res := resTmp.(string)
+	res := resTmp.(int32)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) fieldContext_Season_year_end(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -1704,7 +1704,7 @@ func (ec *executionContext) fieldContext_Season_year_end(_ context.Context, fiel
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3797,14 +3797,14 @@ func (ec *executionContext) unmarshalInputNewSeasonInput(ctx context.Context, ob
 			it.LeagueID = data
 		case "year_start":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("year_start"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalNInt2int32(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.YearStart = data
 		case "year_end":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("year_end"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalNInt2int32(ctx, v)
 			if err != nil {
 				return it, err
 			}

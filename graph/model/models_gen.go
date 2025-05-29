@@ -31,8 +31,8 @@ type NewGamePickInput struct {
 
 type NewSeasonInput struct {
 	LeagueID  string `json:"league_id"`
-	YearStart string `json:"year_start"`
-	YearEnd   string `json:"year_end"`
+	YearStart int32  `json:"year_start"`
+	YearEnd   int32  `json:"year_end"`
 	Sport     string `json:"sport"`
 }
 
@@ -42,7 +42,7 @@ type Query struct {
 type Season struct {
 	ID        string `json:"id"`
 	LeagueID  string `json:"league_id"`
-	YearStart string `json:"year_start"`
-	YearEnd   string `json:"year_end"`
+	YearStart int32  `json:"year_start"`
+	YearEnd   int32  `json:"year_end"`
 	Sport     string `json:"sport"`
 }

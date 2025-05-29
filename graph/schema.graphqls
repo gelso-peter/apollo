@@ -17,15 +17,15 @@ type Query {
 type Season {
   id: ID!
   league_id: ID!
-  year_start: String!
-  year_end: String!
+  year_start: Int!
+  year_end: Int!
   sport: String!
 }
 
 input NewSeasonInput {
   league_id: ID!
-  year_start: String!
-  year_end: String!
+  year_start: Int!
+  year_end: Int!
   sport: String!
 }
 
