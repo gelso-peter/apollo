@@ -19,26 +19,30 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/joho/godotenv"
 )
 
 const defaultPort = "8080"
 
 func main() {
-	// load env variables
-	_ = godotenv.Load()
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
+	}
+
+	oddsApiKey := os.Getenv("ODDS_API_KEY")
+	if oddsApiKey == "" {
+		log.Fatal("Missing ODDS_API_KEY")
+	}
+
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatal("Missing DATABASE_URL")
 	}
 
 	db.ConnectDB()
 	defer db.CloseDB()
 	migrations.RunMigrations()
 
-	// Instantiate Odds API Service
-	var oddsApiKey = string(os.Getenv("ODDS_API_KEY"))
 	odds.InitOddsService(oddsApiKey)
 	oddsService := odds.GetOddsService()
 

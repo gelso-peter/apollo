@@ -1,32 +1,33 @@
 package graph
 
 import (
+	"apollo/graph/model"
 	"context"
 	"database/sql"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetCurrentWeekNumber(ctx context.Context, db *pgxpool.Pool, seasonID string) (int, error) {
-	var weekNumber int
+func GetCurrentWeekData(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (*model.SportSeasonWeekData, error) {
+	var sportSeasonWeekData *model.SportSeasonWeekData
 	query := `
-        SELECT week_number
-        FROM sport_season_week
-        WHERE sport_season_id = $1
-          AND start_date <= CURRENT_DATE
-          AND end_date >= CURRENT_DATE
-        LIMIT 1;
-    `
-	err := db.QueryRow(ctx, query, seasonID).Scan(&weekNumber)
+        SELECT ssw.id, ssw.start_date, ssw.end_date
+		FROM sport_season_week ssw
+			JOIN sport_season ss ON ss.id = ssw.sport_season_id
+			WHERE ss.sport = $1
+  			AND CURRENT_DATE BETWEEN ssw.start_date AND ssw.end_date
+			AND ss.year_start = $2
+			AND ss.year_end = $3
+    	`
+	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonWeekData.SportSeasonWeekID, &sportSeasonWeekData.WeekStart, &sportSeasonWeekData.WeekEnd)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("no week found for current date in season %s", seasonID)
+			return nil, fmt.Errorf("no week data found for current sport %s for years %d - %d", sport, yearStart, yearEnd)
 		}
-		return 0, err
+		return nil, err
 	}
-	return weekNumber, nil
+	return sportSeasonWeekData, nil
 }
 
 func GetSportSeasonId(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (string, error) {
@@ -35,8 +36,8 @@ func GetSportSeasonId(ctx context.Context, db *pgxpool.Pool, sport string, yearS
         SELECT id
         FROM sport_season
         WHERE 
-			sport = $1
-			year_start = $2
+			sport = $1 AND
+			year_start = $2 AND
 			year_end = $3
         LIMIT 1;
     `
@@ -48,21 +49,4 @@ func GetSportSeasonId(ctx context.Context, db *pgxpool.Pool, sport string, yearS
 		return "", err
 	}
 	return sportSeasonId, nil
-}
-func CreateSportSeason(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (string, error) {
-	id := uuid.New()
-
-	_, err := db.Exec(ctx, `
-		INSERT INTO sport_season (
-			id, sport, year_start, year_end, created_at, updated_at
-		) VALUES (
-			$1, $2, $3, $4, now(), now()
-		)
-	`, id, sport, yearStart, yearEnd)
-
-	if err != nil {
-		return "", fmt.Errorf("failed to create season: %w", err)
-	}
-
-	return id.String(), nil
 }

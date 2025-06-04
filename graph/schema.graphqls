@@ -56,7 +56,7 @@ input NewGamePickInput {
 
 type TeamOddsInfo {
   name: String!
-  spread: Int!
+  spread: Float!
 }
 
 type GameOdds {
@@ -65,4 +65,10 @@ type GameOdds {
   commenceTime: String!
   isSelectable: Boolean!
   oddsGameId: ID!
+}
+
+type SportSeasonWeekData {
+  sportSeasonWeekId: ID!
+  weekStart: String!
+  weekEnd: String!
 }

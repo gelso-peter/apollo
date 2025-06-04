@@ -12,9 +12,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - DATABASE_URL=postgres://postgres:password@postgres:5432/apollo?sslmode=disable
-
+    env_file:
+      - .env
+      
   postgres:
     image: postgres:15
     restart: always

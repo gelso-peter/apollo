@@ -12,8 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // CreateGamePick is the resolver for the CreateGamePick field.
@@ -68,7 +66,7 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 		INSERT INTO league_season (
 			id, league_id, sport_season_id, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, now(), now()
+			$1, $2, $3, now(), now()
 		)
 	`, league_season_id, input.LeagueID, sportSeasonId)
 
@@ -83,40 +81,6 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 		YearEnd:   input.YearEnd,
 		Sport:     input.Sport,
 	}, nil
-}
-
-func CreateSeasonWeeks(ctx context.Context, db *pgxpool.Pool, seasonID uuid.UUID, yearStart int, numberOfWeeks int) error {
-	// Set first week start date (e.g. first Sunday of September)
-	startDate := time.Date(yearStart, time.September, 5, 0, 0, 0, 0, time.UTC)
-	for startDate.Weekday() != time.Thursday {
-		startDate = startDate.AddDate(0, 0, 1) // add 1 day
-	}
-
-	batch := &pgx.Batch{}
-
-	for i := 0; i < numberOfWeeks; i++ {
-		weekID := uuid.New()
-		weekStart := startDate.AddDate(0, 0, i*7)
-		weekEnd := weekStart.AddDate(0, 0, 6)
-
-		batch.Queue(`
-			INSERT INTO season_week (
-				id, season_id, week_number, start_date, end_date,
-				created_at, updated_at
-			) VALUES ($1, $2, $3, $4, $5, now(), now())
-		`, weekID, seasonID, i+1, weekStart, weekEnd)
-	}
-
-	br := db.SendBatch(ctx, batch)
-	defer br.Close()
-
-	for i := 0; i < numberOfWeeks; i++ {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("failed to insert week %d: %w", i+1, err)
-		}
-	}
-
-	return nil
 }
 
 // GetLeagueSeasonsByID is the resolver for the GetLeagueSeasonsById field.
@@ -154,69 +118,62 @@ func (r *queryResolver) GetGamePicksByWeek(ctx context.Context, seasonID string,
 
 // GetWeeklyNflGameSpreads is the resolver for the GetWeeklyNflGameSpreads field.
 func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.GameOdds, error) {
-	panic("unimplemented")
-	// // 1. Determine week window (Sunday end of week)
+	// UNCOMMENT WHEN NFL IS READY
 	// now := time.Now().UTC()
-	// // Calculate end of week Sunday 23:59:59 UTC
-	// weekEnd, err := GetCurrentWeekNumber(r.DB, seasonID)
+	// seasonWeekData, err := GetCurrentWeekData(ctx, r.DB, "football", 2025, 2026) // TODO: make these params
 	// if err != nil {
-	// 	return nil, fmt.Errorf("Failed to fetch week number for season: %w", err)
+	// 	return nil, fmt.Errorf("failed to fetch week id %w", err)
 	// }
-	// weekEnd = weekEnd.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+
+	// seasonWeekEndAsTime, err := time.Parse(time.RFC3339, seasonWeekData.WeekEnd)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("error week end time")
+	// }
 
 	// // Format RFC3339 for API
 	// from := now.Format(time.RFC3339)
-	// to := weekEnd.Format(time.RFC3339)
+	// to := seasonWeekEndAsTime.Format(time.RFC3339)
 
-	// // 2. Get games from Odds API (returns []Game with Spreads)
-	// games, err := r.OddsService.GetNFLGames(from, to)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to fetch NFL games: %w", err)
-	// }
+	// THIS TEST MLB FOR NOW
+	now := time.Now().UTC()
+	oneDayFromNow := now.Add(24 * time.Hour)
 
-	// // 3. Fetch user ID from context (assuming Auth middleware)
-	// userID, ok := contextutil.GetUserIDFromContext(ctx)
-	// if !ok {
-	// 	return nil, fmt.Errorf("Unauthorized")
-	// }
+	//Get games from Odds API (returns []Game with Spreads)
+	games, err := r.OddsService.GetNFLGames(now.Format(time.RFC3339), oneDayFromNow.Format(time.RFC3339))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch NFL games: %w", err)
+	}
 
-	// // 4. Get user's picks from DB (map[oddsGameID]bool)
-	// userPickedGames, err := r.DB.GetUserPickedGameIDs(ctx, userID)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to fetch user picks: %w", err)
-	// }
+	var result []*model.GameOdds
 
-	// var result []*model.GameOdds
+	for _, game := range games {
+		commenceTime := game.CommenceTime
 
-	// for _, game := range games {
-	// 	commenceTime := game.CommenceTime
+		// Selection logic
+		isPast := commenceTime.Before(time.Now().UTC())
+		within24hrs := commenceTime.Sub(time.Now().UTC()) <= 24*time.Hour
 
-	// 	// Selection logic
-	// 	isPast := commenceTime.Before(time.Now().UTC())
-	// 	within24hrs := commenceTime.Sub(time.Now().UTC()) <= 24*time.Hour
-	// 	userAlreadyPicked := userPickedGames[game.ID]
+		isSelectable := !isPast && within24hrs
 
-	// 	isSelectable := !isPast && !userAlreadyPicked && within24hrs
+		home := game.Spreads.HomeTeam
+		away := game.Spreads.AwayTeam
 
-	// 	home := game.Spreads.HomeTeam
-	// 	away := game.Spreads.AwayTeam
+		result = append(result, &model.GameOdds{
+			OddsGameID:   game.ID,
+			CommenceTime: commenceTime.Format(time.RFC3339),
+			IsSelectable: isSelectable,
+			HomeTeam: &model.TeamOddsInfo{
+				Name:   home.Name,
+				Spread: home.Point,
+			},
+			AwayTeam: &model.TeamOddsInfo{
+				Name:   away.Name,
+				Spread: away.Point,
+			},
+		})
+	}
 
-	// 	result = append(result, &model.GameOdds{
-	// 		OddsGameID:   game.ID,
-	// 		CommenceTime: commenceTime.Format(time.RFC3339),
-	// 		IsSelectable: isSelectable,
-	// 		HomeTeam: &model.TeamOddsInfo{
-	// 			Name:   home.Name,
-	// 			Spread: home.Point,
-	// 		},
-	// 		AwayTeam: &model.TeamOddsInfo{
-	// 			Name:   away.Name,
-	// 			Spread: away.Point,
-	// 		},
-	// 	})
-	//}
-
-	// return result, nil
+	return result, nil
 }
 
 // Mutation returns MutationResolver implementation.

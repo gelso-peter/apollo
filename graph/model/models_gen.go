@@ -55,7 +55,13 @@ type Season struct {
 	Sport     string `json:"sport"`
 }
 
+type SportSeasonWeekData struct {
+	SportSeasonWeekID string `json:"sportSeasonWeekId"`
+	WeekStart         string `json:"weekStart"`
+	WeekEnd           string `json:"weekEnd"`
+}
+
 type TeamOddsInfo struct {
-	Name   string `json:"name"`
-	Spread int32  `json:"spread"`
+	Name   string  `json:"name"`
+	Spread float64 `json:"spread"`
 }

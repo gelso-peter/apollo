@@ -19,6 +19,8 @@ RUN go build -o server ./server
 # Stage 2: Create a lightweight image for deployment
 FROM debian:bookworm-slim
 
+RUN apt-get update && apt-get install -y curl ca-certificates && update-ca-certificates
+
 # Set the working directory inside the container
 WORKDIR /app
 
