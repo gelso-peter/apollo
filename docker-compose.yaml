@@ -13,7 +13,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DB_URL=postgres://postgres:password@postgres:5432/apollo?sslmode=disable
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/apollo?sslmode=disable
 
   postgres:
     image: postgres:15

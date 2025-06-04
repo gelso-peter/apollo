@@ -2,6 +2,14 @@
 
 package model
 
+type GameOdds struct {
+	HomeTeam     *TeamOddsInfo `json:"homeTeam"`
+	AwayTeam     *TeamOddsInfo `json:"awayTeam"`
+	CommenceTime string        `json:"commenceTime"`
+	IsSelectable bool          `json:"isSelectable"`
+	OddsGameID   string        `json:"oddsGameId"`
+}
+
 type GamePick struct {
 	ID               string `json:"id"`
 	SeasonID         string `json:"season_id"`
@@ -45,4 +53,9 @@ type Season struct {
 	YearStart int32  `json:"year_start"`
 	YearEnd   int32  `json:"year_end"`
 	Sport     string `json:"sport"`
+}
+
+type TeamOddsInfo struct {
+	Name   string `json:"name"`
+	Spread int32  `json:"spread"`
 }

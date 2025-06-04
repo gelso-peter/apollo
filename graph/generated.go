@@ -47,6 +47,14 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	GameOdds struct {
+		AwayTeam     func(childComplexity int) int
+		CommenceTime func(childComplexity int) int
+		HomeTeam     func(childComplexity int) int
+		IsSelectable func(childComplexity int) int
+		OddsGameID   func(childComplexity int) int
+	}
+
 	GamePick struct {
 		CreatedAt        func(childComplexity int) int
 		ID               func(childComplexity int) int
@@ -62,13 +70,14 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateGamePick func(childComplexity int, input model.NewGamePickInput) int
-		CreateSeason   func(childComplexity int, input model.NewSeasonInput) int
+		CreateGamePick     func(childComplexity int, input model.NewGamePickInput) int
+		CreateLeagueSeason func(childComplexity int, input model.NewSeasonInput) int
 	}
 
 	Query struct {
-		GetGamePicksByWeek   func(childComplexity int, seasonID string, week int32) int
-		GetLeagueSeasonsByID func(childComplexity int, leagueID string) int
+		GetGamePicksByWeek      func(childComplexity int, seasonID string, week int32) int
+		GetLeagueSeasonsByID    func(childComplexity int, leagueID string) int
+		GetWeeklyNflGameSpreads func(childComplexity int) int
 	}
 
 	Season struct {
@@ -78,15 +87,21 @@ type ComplexityRoot struct {
 		YearEnd   func(childComplexity int) int
 		YearStart func(childComplexity int) int
 	}
+
+	TeamOddsInfo struct {
+		Name   func(childComplexity int) int
+		Spread func(childComplexity int) int
+	}
 }
 
 type MutationResolver interface {
 	CreateGamePick(ctx context.Context, input model.NewGamePickInput) (*model.GamePick, error)
-	CreateSeason(ctx context.Context, input model.NewSeasonInput) (*model.Season, error)
+	CreateLeagueSeason(ctx context.Context, input model.NewSeasonInput) (*model.Season, error)
 }
 type QueryResolver interface {
 	GetLeagueSeasonsByID(ctx context.Context, leagueID string) ([]*model.Season, error)
 	GetGamePicksByWeek(ctx context.Context, seasonID string, week int32) ([]*model.GamePick, error)
+	GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.GameOdds, error)
 }
 
 type executableSchema struct {
@@ -107,6 +122,41 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := executionContext{nil, e, 0, 0, nil}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "GameOdds.awayTeam":
+		if e.complexity.GameOdds.AwayTeam == nil {
+			break
+		}
+
+		return e.complexity.GameOdds.AwayTeam(childComplexity), true
+
+	case "GameOdds.commenceTime":
+		if e.complexity.GameOdds.CommenceTime == nil {
+			break
+		}
+
+		return e.complexity.GameOdds.CommenceTime(childComplexity), true
+
+	case "GameOdds.homeTeam":
+		if e.complexity.GameOdds.HomeTeam == nil {
+			break
+		}
+
+		return e.complexity.GameOdds.HomeTeam(childComplexity), true
+
+	case "GameOdds.isSelectable":
+		if e.complexity.GameOdds.IsSelectable == nil {
+			break
+		}
+
+		return e.complexity.GameOdds.IsSelectable(childComplexity), true
+
+	case "GameOdds.oddsGameId":
+		if e.complexity.GameOdds.OddsGameID == nil {
+			break
+		}
+
+		return e.complexity.GameOdds.OddsGameID(childComplexity), true
 
 	case "GamePick.created_at":
 		if e.complexity.GamePick.CreatedAt == nil {
@@ -197,17 +247,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.CreateGamePick(childComplexity, args["input"].(model.NewGamePickInput)), true
 
-	case "Mutation.CreateSeason":
-		if e.complexity.Mutation.CreateSeason == nil {
+	case "Mutation.CreateLeagueSeason":
+		if e.complexity.Mutation.CreateLeagueSeason == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_CreateSeason_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_CreateLeagueSeason_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateSeason(childComplexity, args["input"].(model.NewSeasonInput)), true
+		return e.complexity.Mutation.CreateLeagueSeason(childComplexity, args["input"].(model.NewSeasonInput)), true
 
 	case "Query.GetGamePicksByWeek":
 		if e.complexity.Query.GetGamePicksByWeek == nil {
@@ -232,6 +282,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.GetLeagueSeasonsByID(childComplexity, args["leagueID"].(string)), true
+
+	case "Query.GetWeeklyNflGameSpreads":
+		if e.complexity.Query.GetWeeklyNflGameSpreads == nil {
+			break
+		}
+
+		return e.complexity.Query.GetWeeklyNflGameSpreads(childComplexity), true
 
 	case "Season.id":
 		if e.complexity.Season.ID == nil {
@@ -267,6 +324,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Season.YearStart(childComplexity), true
+
+	case "TeamOddsInfo.name":
+		if e.complexity.TeamOddsInfo.Name == nil {
+			break
+		}
+
+		return e.complexity.TeamOddsInfo.Name(childComplexity), true
+
+	case "TeamOddsInfo.spread":
+		if e.complexity.TeamOddsInfo.Spread == nil {
+			break
+		}
+
+		return e.complexity.TeamOddsInfo.Spread(childComplexity), true
 
 	}
 	return 0, false
@@ -417,17 +488,17 @@ func (ec *executionContext) field_Mutation_CreateGamePick_argsInput(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_CreateSeason_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_CreateLeagueSeason_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
-	arg0, err := ec.field_Mutation_CreateSeason_argsInput(ctx, rawArgs)
+	arg0, err := ec.field_Mutation_CreateLeagueSeason_argsInput(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
 	args["input"] = arg0
 	return args, nil
 }
-func (ec *executionContext) field_Mutation_CreateSeason_argsInput(
+func (ec *executionContext) field_Mutation_CreateLeagueSeason_argsInput(
 	ctx context.Context,
 	rawArgs map[string]any,
 ) (model.NewSeasonInput, error) {
@@ -626,6 +697,238 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _GameOdds_homeTeam(ctx context.Context, field graphql.CollectedField, obj *model.GameOdds) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameOdds_homeTeam(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.HomeTeam, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.TeamOddsInfo)
+	fc.Result = res
+	return ec.marshalNTeamOddsInfo2ᚖapolloᚋgraphᚋmodelᚐTeamOddsInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameOdds_homeTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameOdds",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_TeamOddsInfo_name(ctx, field)
+			case "spread":
+				return ec.fieldContext_TeamOddsInfo_spread(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TeamOddsInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameOdds_awayTeam(ctx context.Context, field graphql.CollectedField, obj *model.GameOdds) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameOdds_awayTeam(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.AwayTeam, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.TeamOddsInfo)
+	fc.Result = res
+	return ec.marshalNTeamOddsInfo2ᚖapolloᚋgraphᚋmodelᚐTeamOddsInfo(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameOdds_awayTeam(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameOdds",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "name":
+				return ec.fieldContext_TeamOddsInfo_name(ctx, field)
+			case "spread":
+				return ec.fieldContext_TeamOddsInfo_spread(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type TeamOddsInfo", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameOdds_commenceTime(ctx context.Context, field graphql.CollectedField, obj *model.GameOdds) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameOdds_commenceTime(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CommenceTime, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameOdds_commenceTime(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameOdds",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameOdds_isSelectable(ctx context.Context, field graphql.CollectedField, obj *model.GameOdds) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameOdds_isSelectable(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.IsSelectable, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameOdds_isSelectable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameOdds",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameOdds_oddsGameId(ctx context.Context, field graphql.CollectedField, obj *model.GameOdds) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameOdds_oddsGameId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.OddsGameID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNID2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameOdds_oddsGameId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameOdds",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _GamePick_id(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_GamePick_id(ctx, field)
@@ -1190,8 +1493,8 @@ func (ec *executionContext) fieldContext_Mutation_CreateGamePick(ctx context.Con
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_CreateSeason(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_CreateSeason(ctx, field)
+func (ec *executionContext) _Mutation_CreateLeagueSeason(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_CreateLeagueSeason(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -1204,7 +1507,7 @@ func (ec *executionContext) _Mutation_CreateSeason(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateSeason(rctx, fc.Args["input"].(model.NewSeasonInput))
+		return ec.resolvers.Mutation().CreateLeagueSeason(rctx, fc.Args["input"].(model.NewSeasonInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1221,7 +1524,7 @@ func (ec *executionContext) _Mutation_CreateSeason(ctx context.Context, field gr
 	return ec.marshalNSeason2ᚖapolloᚋgraphᚋmodelᚐSeason(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_CreateSeason(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_CreateLeagueSeason(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -1250,7 +1553,7 @@ func (ec *executionContext) fieldContext_Mutation_CreateSeason(ctx context.Conte
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_CreateSeason_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_CreateLeagueSeason_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1399,6 +1702,62 @@ func (ec *executionContext) fieldContext_Query_GetGamePicksByWeek(ctx context.Co
 	if fc.Args, err = ec.field_Query_GetGamePicksByWeek_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_GetWeeklyNflGameSpreads(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_GetWeeklyNflGameSpreads(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().GetWeeklyNflGameSpreads(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.GameOdds)
+	fc.Result = res
+	return ec.marshalNGameOdds2ᚕᚖapolloᚋgraphᚋmodelᚐGameOdds(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_GetWeeklyNflGameSpreads(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "homeTeam":
+				return ec.fieldContext_GameOdds_homeTeam(ctx, field)
+			case "awayTeam":
+				return ec.fieldContext_GameOdds_awayTeam(ctx, field)
+			case "commenceTime":
+				return ec.fieldContext_GameOdds_commenceTime(ctx, field)
+			case "isSelectable":
+				return ec.fieldContext_GameOdds_isSelectable(ctx, field)
+			case "oddsGameId":
+				return ec.fieldContext_GameOdds_oddsGameId(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GameOdds", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -1749,6 +2108,94 @@ func (ec *executionContext) fieldContext_Season_sport(_ context.Context, field g
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamOddsInfo_name(ctx context.Context, field graphql.CollectedField, obj *model.TeamOddsInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TeamOddsInfo_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TeamOddsInfo_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TeamOddsInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TeamOddsInfo_spread(ctx context.Context, field graphql.CollectedField, obj *model.TeamOddsInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_TeamOddsInfo_spread(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Spread, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_TeamOddsInfo_spread(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TeamOddsInfo",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3830,6 +4277,65 @@ func (ec *executionContext) unmarshalInputNewSeasonInput(ctx context.Context, ob
 
 // region    **************************** object.gotpl ****************************
 
+var gameOddsImplementors = []string{"GameOdds"}
+
+func (ec *executionContext) _GameOdds(ctx context.Context, sel ast.SelectionSet, obj *model.GameOdds) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gameOddsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GameOdds")
+		case "homeTeam":
+			out.Values[i] = ec._GameOdds_homeTeam(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "awayTeam":
+			out.Values[i] = ec._GameOdds_awayTeam(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "commenceTime":
+			out.Values[i] = ec._GameOdds_commenceTime(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isSelectable":
+			out.Values[i] = ec._GameOdds_isSelectable(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "oddsGameId":
+			out.Values[i] = ec._GameOdds_oddsGameId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var gamePickImplementors = []string{"GamePick"}
 
 func (ec *executionContext) _GamePick(ctx context.Context, sel ast.SelectionSet, obj *model.GamePick) graphql.Marshaler {
@@ -3945,9 +4451,9 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "CreateSeason":
+		case "CreateLeagueSeason":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_CreateSeason(ctx, field)
+				return ec._Mutation_CreateLeagueSeason(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -4038,6 +4544,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "GetWeeklyNflGameSpreads":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_GetWeeklyNflGameSpreads(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -4102,6 +4630,50 @@ func (ec *executionContext) _Season(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "sport":
 			out.Values[i] = ec._Season_sport(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var teamOddsInfoImplementors = []string{"TeamOddsInfo"}
+
+func (ec *executionContext) _TeamOddsInfo(ctx context.Context, sel ast.SelectionSet, obj *model.TeamOddsInfo) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, teamOddsInfoImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TeamOddsInfo")
+		case "name":
+			out.Values[i] = ec._TeamOddsInfo_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "spread":
+			out.Values[i] = ec._TeamOddsInfo_spread(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4479,6 +5051,44 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) marshalNGameOdds2ᚕᚖapolloᚋgraphᚋmodelᚐGameOdds(ctx context.Context, sel ast.SelectionSet, v []*model.GameOdds) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOGameOdds2ᚖapolloᚋgraphᚋmodelᚐGameOdds(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	return ret
+}
+
 func (ec *executionContext) marshalNGamePick2apolloᚋgraphᚋmodelᚐGamePick(ctx context.Context, sel ast.SelectionSet, v model.GamePick) graphql.Marshaler {
 	return ec._GamePick(ctx, sel, &v)
 }
@@ -4651,6 +5261,16 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNTeamOddsInfo2ᚖapolloᚋgraphᚋmodelᚐTeamOddsInfo(ctx context.Context, sel ast.SelectionSet, v *model.TeamOddsInfo) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TeamOddsInfo(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalN__Directive2githubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐDirective(ctx context.Context, sel ast.SelectionSet, v introspection.Directive) graphql.Marshaler {
@@ -4934,6 +5554,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	_ = ctx
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOGameOdds2ᚖapolloᚋgraphᚋmodelᚐGameOdds(ctx context.Context, sel ast.SelectionSet, v *model.GameOdds) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._GameOdds(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {

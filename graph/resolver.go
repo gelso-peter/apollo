@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"apollo/services/odds.go"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -9,5 +11,6 @@ import (
 // It serves as dependency injection for your app, add any dependencies you require here.
 
 type Resolver struct {
-	DB *pgxpool.Pool
+	DB          *pgxpool.Pool
+	OddsService odds.OddsService
 }

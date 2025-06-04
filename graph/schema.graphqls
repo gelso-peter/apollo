@@ -5,13 +5,14 @@
 # GET
 type Mutation {
   CreateGamePick(input: NewGamePickInput!): GamePick!
-  CreateSeason(input: NewSeasonInput!): Season!
+  CreateLeagueSeason(input: NewSeasonInput!): Season!
 }
 
 # POST
 type Query {
   GetLeagueSeasonsById(leagueID: ID!): [Season!]!
   GetGamePicksByWeek(season_id: ID!, week: Int!): [GamePick!]!
+  GetWeeklyNflGameSpreads: [GameOdds]!
 }
 
 type Season {
@@ -51,4 +52,17 @@ input NewGamePickInput {
   spread_selection: Int!
   spread_result: Int!
   points_assigned: Int!
+}
+
+type TeamOddsInfo {
+  name: String!
+  spread: Int!
+}
+
+type GameOdds {
+  homeTeam: TeamOddsInfo!
+  awayTeam: TeamOddsInfo!
+  commenceTime: String!
+  isSelectable: Boolean!
+  oddsGameId: ID!
 }

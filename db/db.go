@@ -13,9 +13,9 @@ var DB *pgxpool.Pool
 
 // ConnectDB initializes the PostgreSQL connection
 func ConnectDB() {
-	dsn := os.Getenv("DB_URL")
+	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		log.Fatal("DB_URL environment variable not set")
+		log.Fatal("DATABASE_URL environment variable not set")
 	}
 
 	var err error

@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o apollo .
+RUN go build -o server ./server
 
 # Stage 2: Create a lightweight image for deployment
 FROM debian:bookworm-slim
@@ -23,10 +23,10 @@ FROM debian:bookworm-slim
 WORKDIR /app
 
 # Copy the built binary from the builder stage
-COPY --from=builder /app/apollo .
+COPY --from=builder /app/server .
 
 # Expose the port the app runs on
 EXPOSE 8080
 
 # Start the application
-CMD ["./apollo"]
+CMD ["./server"]
