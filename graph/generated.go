@@ -88,10 +88,10 @@ type ComplexityRoot struct {
 	}
 
 	SportSeasonInfo struct {
-		Sport         func(childComplexity int) int
-		SportSeasonID func(childComplexity int) int
-		YearEnd       func(childComplexity int) int
-		YearStart     func(childComplexity int) int
+		ID        func(childComplexity int) int
+		Sport     func(childComplexity int) int
+		YearEnd   func(childComplexity int) int
+		YearStart func(childComplexity int) int
 	}
 
 	SportSeasonWeekData struct {
@@ -330,19 +330,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Season.YearStart(childComplexity), true
 
+	case "SportSeasonInfo.id":
+		if e.complexity.SportSeasonInfo.ID == nil {
+			break
+		}
+
+		return e.complexity.SportSeasonInfo.ID(childComplexity), true
+
 	case "SportSeasonInfo.sport":
 		if e.complexity.SportSeasonInfo.Sport == nil {
 			break
 		}
 
 		return e.complexity.SportSeasonInfo.Sport(childComplexity), true
-
-	case "SportSeasonInfo.sportSeasonId":
-		if e.complexity.SportSeasonInfo.SportSeasonID == nil {
-			break
-		}
-
-		return e.complexity.SportSeasonInfo.SportSeasonID(childComplexity), true
 
 	case "SportSeasonInfo.year_end":
 		if e.complexity.SportSeasonInfo.YearEnd == nil {
@@ -2101,8 +2101,8 @@ func (ec *executionContext) fieldContext_Season_sport(_ context.Context, field g
 	return fc, nil
 }
 
-func (ec *executionContext) _SportSeasonInfo_sportSeasonId(ctx context.Context, field graphql.CollectedField, obj *model.SportSeasonInfo) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_SportSeasonInfo_sportSeasonId(ctx, field)
+func (ec *executionContext) _SportSeasonInfo_id(ctx context.Context, field graphql.CollectedField, obj *model.SportSeasonInfo) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_SportSeasonInfo_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2115,7 +2115,7 @@ func (ec *executionContext) _SportSeasonInfo_sportSeasonId(ctx context.Context, 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.SportSeasonID, nil
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2132,7 +2132,7 @@ func (ec *executionContext) _SportSeasonInfo_sportSeasonId(ctx context.Context, 
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_SportSeasonInfo_sportSeasonId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_SportSeasonInfo_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "SportSeasonInfo",
 		Field:      field,
@@ -4958,8 +4958,8 @@ func (ec *executionContext) _SportSeasonInfo(ctx context.Context, sel ast.Select
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("SportSeasonInfo")
-		case "sportSeasonId":
-			out.Values[i] = ec._SportSeasonInfo_sportSeasonId(ctx, field, obj)
+		case "id":
+			out.Values[i] = ec._SportSeasonInfo_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

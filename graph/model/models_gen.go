@@ -55,10 +55,10 @@ type Season struct {
 }
 
 type SportSeasonInfo struct {
-	SportSeasonID string `json:"sportSeasonId"`
-	Sport         string `json:"sport"`
-	YearStart     int32  `json:"year_start"`
-	YearEnd       int32  `json:"year_end"`
+	ID        string `json:"id"`
+	Sport     string `json:"sport"`
+	YearStart int32  `json:"year_start"`
+	YearEnd   int32  `json:"year_end"`
 }
 
 type SportSeasonWeekData struct {

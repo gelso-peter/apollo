@@ -4,13 +4,15 @@ import (
 	"apollo/graph/model"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func GetCurrentWeekData(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (*model.SportSeasonWeekData, error) {
-	var sportSeasonWeekData *model.SportSeasonWeekData
+	sportSeasonWeekData := &model.SportSeasonWeekData{}
 	query := `
         SELECT ssw.id, ssw.start_date, ssw.end_date
 		FROM sport_season_week ssw
@@ -31,9 +33,10 @@ func GetCurrentWeekData(ctx context.Context, db *pgxpool.Pool, sport string, yea
 }
 
 func GetSportSeasonInfo(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (*model.SportSeasonInfo, error) {
-	var sportSeasonInfo *model.SportSeasonInfo
+	sportSeasonInfo := &model.SportSeasonInfo{}
+
 	query := `
-        SELECT id, sport, year_start, year_end
+        SELECT id, sport
         FROM sport_season
         WHERE 
 			sport = $1 AND
@@ -41,12 +44,15 @@ func GetSportSeasonInfo(ctx context.Context, db *pgxpool.Pool, sport string, yea
 			year_end = $3
         LIMIT 1;
     `
-	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonInfo.SportSeasonID, sportSeasonInfo.YearStart, sportSeasonInfo.YearEnd)
+	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonInfo.ID, &sportSeasonInfo.Sport)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) { // for pgx
 			return nil, fmt.Errorf("no sport season ID found for sport %s in years %d - %d", sport, yearStart, yearEnd)
 		}
 		return nil, err
 	}
+	sportSeasonInfo.YearStart = int32(yearStart)
+	sportSeasonInfo.YearEnd = int32(yearEnd)
+
 	return sportSeasonInfo, nil
 }

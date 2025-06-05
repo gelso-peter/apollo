@@ -59,7 +59,7 @@ type TeamOddsInfo {
 }
 
 type SportSeasonInfo {
-  sportSeasonId: ID!
+  id: ID!
   sport: String!
   year_start: Int!
   year_end: Int!

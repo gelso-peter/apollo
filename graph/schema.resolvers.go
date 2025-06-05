@@ -66,14 +66,14 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 		) VALUES (
 			$1, $2, $3, now(), now()
 		)
-	`, league_season_id, input.LeagueID, sportSeasonInfo.SportSeasonID)
+	`, league_season_id, input.LeagueID, sportSeasonInfo.ID)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create league season: %w", err)
 	}
 
 	return &model.Season{
-		ID:        sportSeasonInfo.SportSeasonID,
+		ID:        sportSeasonInfo.ID,
 		LeagueID:  input.LeagueID,
 		YearStart: input.YearStart,
 		YearEnd:   input.YearEnd,
@@ -84,10 +84,12 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 // GetLeagueSeasonsByID is the resolver for the GetLeagueSeasonsById field.
 func (r *queryResolver) GetLeagueSeasonsByID(ctx context.Context, leagueID string) ([]*model.Season, error) {
 	rows, err := r.DB.Query(ctx, `
-        SELECT s.id, s.year_start, s.year_end, s.sport
-        FROM season s
-        INNER JOIN league l ON s.league_id = l.id
-        WHERE l.id = $1`, leagueID)
+        SELECT ls.id, ss.year_start, ss.year_end, ss.sport
+        FROM league_season ls
+        INNER JOIN league l ON ls.league_id = l.id
+        INNER JOIN sport_season ss ON ls.sport_season_id = ss.id
+        WHERE l.id = $1
+    `, leagueID)
 	if err != nil {
 		return nil, err
 	}
