@@ -24,9 +24,9 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 
 	_, err := r.DB.Exec(ctx, `
 		INSERT INTO game_pick (
-			id, season_id, week_id, user_id,
+			id, league_season_id, sport_season_week_id, user_id,
 			selected_team_name, opponent_team_name,
-			spread_selection, spread_result, points_assigned, is_finalized
+			spread_selection, spread_result, points_assigned, is_finalized,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
@@ -73,7 +73,7 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 	}
 
 	return &model.Season{
-		ID:        sportSeasonInfo.ID,
+		ID:        league_season_id.String(),
 		LeagueID:  input.LeagueID,
 		YearStart: input.YearStart,
 		YearEnd:   input.YearEnd,
