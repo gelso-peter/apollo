@@ -30,10 +30,10 @@ func GetCurrentWeekData(ctx context.Context, db *pgxpool.Pool, sport string, yea
 	return sportSeasonWeekData, nil
 }
 
-func GetSportSeasonId(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (string, error) {
-	var sportSeasonId string
+func GetSportSeasonInfo(ctx context.Context, db *pgxpool.Pool, sport string, yearStart int, yearEnd int) (*model.SportSeasonInfo, error) {
+	var sportSeasonInfo *model.SportSeasonInfo
 	query := `
-        SELECT id
+        SELECT id, sport, year_start, year_end
         FROM sport_season
         WHERE 
 			sport = $1 AND
@@ -41,12 +41,12 @@ func GetSportSeasonId(ctx context.Context, db *pgxpool.Pool, sport string, yearS
 			year_end = $3
         LIMIT 1;
     `
-	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonId)
+	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonInfo.SportSeasonID, sportSeasonInfo.YearStart, sportSeasonInfo.YearEnd)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("no sport season ID found for sport %s in years %d - %d", sport, yearStart, yearEnd)
+			return nil, fmt.Errorf("no sport season ID found for sport %s in years %d - %d", sport, yearStart, yearEnd)
 		}
-		return "", err
+		return nil, err
 	}
-	return sportSeasonId, nil
+	return sportSeasonInfo, nil
 }

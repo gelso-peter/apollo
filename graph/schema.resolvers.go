@@ -26,14 +26,14 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 		INSERT INTO game_pick (
 			id, season_id, week_id, user_id,
 			selected_team_name, opponent_team_name,
-			spread_selection, spread_result, points_assigned,
+			spread_selection, spread_result, points_assigned, is_finalized
 			created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now()
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
 		)
 	`, id, input.SeasonID, input.WeekID, userID,
 		input.SelectedTeamName, input.OpponentTeamName,
-		input.SpreadSelection, input.SpreadResult, input.PointsAssigned)
+		input.SpreadSelection, input.SpreadResult, input.PointsAssigned, false)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create game pick: %w", err)
@@ -47,8 +47,6 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 		SpreadSelection:  input.SpreadSelection,
 		SpreadResult:     input.SpreadResult,
 		PointsAssigned:   input.PointsAssigned,
-		CreatedAt:        time.Now().Format(time.RFC3339),
-		UpdatedAt:        time.Now().Format(time.RFC3339),
 	}, nil
 }
 
@@ -57,7 +55,7 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 	league_season_id := uuid.New()
 
 	// Get sport season id
-	sportSeasonId, err := GetSportSeasonId(ctx, r.DB, input.Sport, int(input.YearStart), int(input.YearEnd))
+	sportSeasonInfo, err := GetSportSeasonInfo(ctx, r.DB, input.Sport, int(input.YearStart), int(input.YearEnd))
 	if err != nil {
 		return nil, err
 	}
@@ -68,14 +66,14 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 		) VALUES (
 			$1, $2, $3, now(), now()
 		)
-	`, league_season_id, input.LeagueID, sportSeasonId)
+	`, league_season_id, input.LeagueID, sportSeasonInfo.SportSeasonID)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create league season: %w", err)
 	}
 
 	return &model.Season{
-		ID:        sportSeasonId,
+		ID:        sportSeasonInfo.SportSeasonID,
 		LeagueID:  input.LeagueID,
 		YearStart: input.YearStart,
 		YearEnd:   input.YearEnd,
@@ -109,11 +107,6 @@ func (r *queryResolver) GetLeagueSeasonsByID(ctx context.Context, leagueID strin
 	}
 
 	return seasons, nil
-}
-
-// GetGamePicksByWeek is the resolver for the GetGamePicksByWeek field.
-func (r *queryResolver) GetGamePicksByWeek(ctx context.Context, seasonID string, week int32) ([]*model.GamePick, error) {
-	panic("unimplemented")
 }
 
 // GetWeeklyNflGameSpreads is the resolver for the GetWeeklyNflGameSpreads field.
@@ -174,6 +167,57 @@ func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.G
 	}
 
 	return result, nil
+}
+
+// GetPicksForUserBySeasonWeekID is the resolver for the GetPicksForUserBySeasonWeekId field.
+func (r *queryResolver) GetPicksForUserBySeasonWeekID(ctx context.Context, seasonWeekID string) ([]*model.GamePick, error) {
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+	rows, err := r.DB.Query(ctx, `
+		SELECT 
+			id, 
+			league_season_id,
+			sport_season_week_id, 
+			user_id, 
+			selected_team_name,
+			opponent_team_name, 
+			spread_selection, 
+			spread_result, 
+			points_assigned,
+			is_finalized
+		FROM game_pick
+		WHERE sport_season_week_id = $1 AND user_id = $2
+	`, seasonWeekID, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var picks []*model.GamePick
+	for rows.Next() {
+		var pick model.GamePick
+		err := rows.Scan(
+			&pick.ID,
+			&pick.SeasonID,
+			&pick.WeekID,
+			&pick.UserID,
+			&pick.SelectedTeamName,
+			&pick.OpponentTeamName,
+			&pick.SpreadSelection,
+			&pick.SpreadResult,
+			&pick.PointsAssigned,
+			&pick.IsFinalized,
+		)
+		if err != nil {
+			return nil, err
+		}
+		picks = append(picks, &pick)
+	}
+
+	return picks, nil
 }
 
 // Mutation returns MutationResolver implementation.

@@ -68,6 +68,7 @@ CREATE TABLE game_pick (
     spread_selection INTEGER NOT NULL,  -- e.g. -3 for favored team
     spread_result INTEGER NOT NULL,     -- e.g. +7 if team beat the spread
     points_assigned INTEGER NOT NULL,
+    is_finalized BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );

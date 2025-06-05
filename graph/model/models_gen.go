@@ -20,8 +20,7 @@ type GamePick struct {
 	SpreadSelection  int32  `json:"spread_selection"`
 	SpreadResult     int32  `json:"spread_result"`
 	PointsAssigned   int32  `json:"points_assigned"`
-	CreatedAt        string `json:"created_at"`
-	UpdatedAt        string `json:"updated_at"`
+	IsFinalized      bool   `json:"isFinalized"`
 }
 
 type Mutation struct {
@@ -53,6 +52,13 @@ type Season struct {
 	YearStart int32  `json:"year_start"`
 	YearEnd   int32  `json:"year_end"`
 	Sport     string `json:"sport"`
+}
+
+type SportSeasonInfo struct {
+	SportSeasonID string `json:"sportSeasonId"`
+	Sport         string `json:"sport"`
+	YearStart     int32  `json:"year_start"`
+	YearEnd       int32  `json:"year_end"`
 }
 
 type SportSeasonWeekData struct {
