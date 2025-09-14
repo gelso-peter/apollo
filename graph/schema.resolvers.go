@@ -28,13 +28,13 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 			id, league_season_id, sport_season_week_id, user_id,
 			selected_team_name, opponent_team_name,
 			spread_selection, spread_result, points_assigned, is_finalized,
-			created_at, updated_at
+			odds_game_id, created_at, updated_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now()
 		)
 	`, id, input.SeasonID, input.WeekID, userID,
 		input.SelectedTeamName, input.OpponentTeamName,
-		input.SpreadSelection, input.SpreadResult, input.PointsAssigned, false)
+		input.SpreadSelection, input.SpreadResult, input.PointsAssigned, false, input.OddsGameID)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create game pick: %w", err)
@@ -42,12 +42,16 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 
 	return &model.GamePick{
 		ID:               id.String(),
+		SeasonID:         input.SeasonID,
 		WeekID:           input.WeekID,
+		UserID:           userID,
 		SelectedTeamName: input.SelectedTeamName,
 		OpponentTeamName: input.OpponentTeamName,
 		SpreadSelection:  input.SpreadSelection,
 		SpreadResult:     input.SpreadResult,
 		PointsAssigned:   input.PointsAssigned,
+		IsFinalized:      false,
+		OddsGameID:       input.OddsGameID,
 	}, nil
 }
 
@@ -56,6 +60,12 @@ func (r *mutationResolver) CreateGamePicks(ctx context.Context, input []*model.N
 	userID, ok := contextutil.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	// Validate all picks before saving any
+	err := r.validateGamePicks(ctx, userID, input)
+	if err != nil {
+		return nil, err
 	}
 
 	var gamePicks []*model.GamePick
@@ -69,13 +79,13 @@ func (r *mutationResolver) CreateGamePicks(ctx context.Context, input []*model.N
 				id, league_season_id, sport_season_week_id, user_id,
 				selected_team_name, opponent_team_name,
 				spread_selection, spread_result, points_assigned, is_finalized,
-				created_at, updated_at
+				odds_game_id, created_at, updated_at
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), now()
 			)
 		`, id, pickInput.SeasonID, pickInput.WeekID, userID,
 			pickInput.SelectedTeamName, pickInput.OpponentTeamName,
-			pickInput.SpreadSelection, pickInput.SpreadResult, pickInput.PointsAssigned, false)
+			pickInput.SpreadSelection, pickInput.SpreadResult, pickInput.PointsAssigned, false, pickInput.OddsGameID)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to create game pick %d: %w", len(gamePicks)+1, err)
@@ -92,12 +102,122 @@ func (r *mutationResolver) CreateGamePicks(ctx context.Context, input []*model.N
 			SpreadResult:     pickInput.SpreadResult,
 			PointsAssigned:   pickInput.PointsAssigned,
 			IsFinalized:      false,
+			OddsGameID:       pickInput.OddsGameID,
 		}
 
 		gamePicks = append(gamePicks, gamePick)
 	}
 
 	return gamePicks, nil
+}
+
+// validateGamePicks validates all picks before allowing them to be saved
+func (r *mutationResolver) validateGamePicks(ctx context.Context, userID string, input []*model.NewGamePickInput) error {
+	if len(input) == 0 {
+		return fmt.Errorf("no picks provided")
+	}
+
+	// Get the week ID from first pick (all picks should be for same week)
+	weekID := input[0].WeekID
+
+	// Validate all picks are for the same week
+	for _, pick := range input {
+		if pick.WeekID != weekID {
+			return fmt.Errorf("all picks must be for the same week")
+		}
+	}
+
+	// Get existing picks for this user and week
+	existingPicks, err := r.getExistingPicksForWeek(ctx, userID, weekID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing picks: %w", err)
+	}
+
+	// Check if user already has picks for this week
+	if len(existingPicks) > 0 {
+		return fmt.Errorf("user already has picks for this week")
+	}
+
+	// Validate no duplicate points assignments within the new picks
+	pointsUsed := make(map[int32]bool)
+	oddsGamesUsed := make(map[string]bool)
+
+	for _, pick := range input {
+		// Check for duplicate points assignment
+		if pointsUsed[pick.PointsAssigned] {
+			return fmt.Errorf("duplicate points assignment: %d points can only be assigned to one game", pick.PointsAssigned)
+		}
+		pointsUsed[pick.PointsAssigned] = true
+
+		// Check for duplicate odds game IDs
+		if oddsGamesUsed[pick.OddsGameID] {
+			return fmt.Errorf("duplicate game selection: game %s can only be picked once", pick.OddsGameID)
+		}
+		oddsGamesUsed[pick.OddsGameID] = true
+	}
+
+	return nil
+}
+
+// getExistingPicksForWeek gets existing picks for a user in a specific week
+func (r *mutationResolver) getExistingPicksForWeek(ctx context.Context, userID, weekID string) ([]*model.GamePick, error) {
+	rows, err := r.DB.Query(ctx, `
+		SELECT
+			id, league_season_id, sport_season_week_id, user_id,
+			selected_team_name, opponent_team_name, spread_selection,
+			spread_result, points_assigned, is_finalized, odds_game_id
+		FROM game_pick
+		WHERE sport_season_week_id = $1 AND user_id = $2
+	`, weekID, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var picks []*model.GamePick
+	for rows.Next() {
+		var pick model.GamePick
+		err := rows.Scan(
+			&pick.ID, &pick.SeasonID, &pick.WeekID, &pick.UserID,
+			&pick.SelectedTeamName, &pick.OpponentTeamName, &pick.SpreadSelection,
+			&pick.SpreadResult, &pick.PointsAssigned, &pick.IsFinalized, &pick.OddsGameID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		picks = append(picks, &pick)
+	}
+
+	return picks, nil
+}
+
+// getUserPickedGamesForCurrentWeek returns a map of odds_game_ids that the user has already picked
+func (r *queryResolver) getUserPickedGamesForCurrentWeek(ctx context.Context, userID string) (map[string]bool, error) {
+	// Query to get all odds_game_ids the user has picked across all their seasons/weeks
+	// Since we don't know the specific season/week context in GetWeeklyNflGameSpreads,
+	// we'll check against all their existing picks to be safe
+	rows, err := r.DB.Query(ctx, `
+		SELECT DISTINCT odds_game_id
+		FROM game_pick
+		WHERE user_id = $1 AND odds_game_id IS NOT NULL
+	`, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pickedGames := make(map[string]bool)
+	for rows.Next() {
+		var oddsGameID string
+		if err := rows.Scan(&oddsGameID); err != nil {
+			return nil, err
+		}
+		pickedGames[oddsGameID] = true
+	}
+
+	return pickedGames, nil
 }
 
 // CreateLeagueSeason is the resolver for the CreateLeagueSeason field.
@@ -163,6 +283,12 @@ func (r *queryResolver) GetLeagueSeasonsByID(ctx context.Context, leagueID strin
 
 // GetWeeklyNflGameSpreads is the resolver for the GetWeeklyNflGameSpreads field.
 func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.GameOdds, error) {
+	// Check authentication
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
 	// UNCOMMENT WHEN NFL IS READY
 	// now := time.Now().UTC()
 	// seasonWeekData, err := GetCurrentWeekData(ctx, r.DB, "football", 2025, 2026) // TODO: make these params
@@ -189,9 +315,20 @@ func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.G
 		return nil, fmt.Errorf("failed to fetch NFL games: %w", err)
 	}
 
+	// Get user's existing picks for current season/week to filter out already picked games
+	userPickedGames, err := r.getUserPickedGamesForCurrentWeek(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user's existing picks: %w", err)
+	}
+
 	var result []*model.GameOdds
 
 	for _, game := range games {
+		// Skip games that the user has already picked
+		if userPickedGames[game.ID] {
+			continue
+		}
+
 		commenceTime := game.CommenceTime
 
 		// Selection logic
@@ -228,17 +365,18 @@ func (r *queryResolver) GetPicksForUserBySeasonWeekID(ctx context.Context, seaso
 		return nil, fmt.Errorf("Unauthorized")
 	}
 	rows, err := r.DB.Query(ctx, `
-		SELECT 
-			id, 
+		SELECT
+			id,
 			league_season_id,
-			sport_season_week_id, 
-			user_id, 
+			sport_season_week_id,
+			user_id,
 			selected_team_name,
-			opponent_team_name, 
-			spread_selection, 
-			spread_result, 
+			opponent_team_name,
+			spread_selection,
+			spread_result,
 			points_assigned,
-			is_finalized
+			is_finalized,
+			odds_game_id
 		FROM game_pick
 		WHERE sport_season_week_id = $1 AND user_id = $2
 	`, seasonWeekID, userID)
@@ -262,6 +400,7 @@ func (r *queryResolver) GetPicksForUserBySeasonWeekID(ctx context.Context, seaso
 			&pick.SpreadResult,
 			&pick.PointsAssigned,
 			&pick.IsFinalized,
+			&pick.OddsGameID,
 		)
 		if err != nil {
 			return nil, err

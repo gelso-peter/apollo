@@ -37,6 +37,7 @@ type GamePick struct {
 	SpreadResult     int32  `json:"spread_result"`
 	PointsAssigned   int32  `json:"points_assigned"`
 	IsFinalized      bool   `json:"isFinalized"`
+	OddsGameID       string `json:"oddsGameId"`
 }
 
 type LeaderboardEntry struct {
@@ -57,6 +58,7 @@ type NewGamePickInput struct {
 	SpreadSelection  int32  `json:"spread_selection"`
 	SpreadResult     int32  `json:"spread_result"`
 	PointsAssigned   int32  `json:"points_assigned"`
+	OddsGameID       string `json:"odds_game_id"`
 }
 
 type NewSeasonInput struct {

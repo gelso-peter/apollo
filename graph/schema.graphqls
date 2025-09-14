@@ -47,6 +47,7 @@ type GamePick {
   spread_result: Int!
   points_assigned: Int!
   isFinalized: Boolean!
+  oddsGameId: ID!
 }
 
 input NewGamePickInput {
@@ -57,6 +58,7 @@ input NewGamePickInput {
   spread_selection: Int!
   spread_result: Int!
   points_assigned: Int!
+  odds_game_id: ID!
 }
 
 type TeamOddsInfo {
