@@ -5,6 +5,7 @@
 # GET
 type Mutation {
   CreateGamePick(input: NewGamePickInput!): GamePick!
+  CreateGamePicks(input: [NewGamePickInput!]!): [GamePick!]!
   CreateLeagueSeason(input: NewSeasonInput!): Season!
 }
 
@@ -13,6 +14,11 @@ type Query {
   GetLeagueSeasonsById(leagueID: ID!): [Season!]!
   GetWeeklyNflGameSpreads: [GameOdds]!
   GetPicksForUserBySeasonWeekId(season_week_id: ID!): [GamePick!]!
+  GetMyWeeklyPicks(season_week_id: ID!): [FormattedPick!]!
+  seasonLeaderboard(seasonId: ID!): SeasonLeaderboard!
+  mySeasonPicks(seasonId: ID!): UserSeasonPicks!
+  seasonLeaguePicks(seasonId: ID!): SeasonLeaguePicks!
+  getCurrentSeasonWeek(seasonId: ID!): SeasonWeek!
 }
 
 type Season {
@@ -77,4 +83,61 @@ type SportSeasonWeekData {
   sportSeasonWeekId: ID!
   weekStart: String!
   weekEnd: String!
+}
+
+type FormattedPick {
+  id: ID!
+  game: String!
+  selected: String!
+  spread: String!
+  pointsAssigned: Int!
+  status: String!
+}
+
+enum PickResult {
+  WIN
+  LOSS
+  PENDING
+}
+
+type LeaderboardEntry {
+  rank: Int!
+  username: String!
+  points: Int!
+  isCurrentUser: Boolean!
+}
+
+type SeasonLeaderboard {
+  entries: [LeaderboardEntry!]!
+}
+
+type Pick {
+  id: ID!
+  gameId: ID!
+  homeTeam: String!
+  awayTeam: String!
+  selectedTeam: String!
+  spread: Float!
+  points: Int!
+  result: PickResult
+}
+
+type UserSeasonPicks {
+  currentWeek: Int!
+  picks: [Pick!]!
+}
+
+type UserPicks {
+  username: String!
+  picks: [Pick!]!
+}
+
+type SeasonLeaguePicks {
+  currentWeek: Int!
+  userPicks: [UserPicks!]!
+}
+
+type SeasonWeek {
+  weekId: ID!
+  weekNumber: Int!
 }

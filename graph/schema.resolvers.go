@@ -8,6 +8,7 @@ import (
 	"apollo/graph/model"
 	"apollo/internal/contextutil"
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -48,6 +49,55 @@ func (r *mutationResolver) CreateGamePick(ctx context.Context, input model.NewGa
 		SpreadResult:     input.SpreadResult,
 		PointsAssigned:   input.PointsAssigned,
 	}, nil
+}
+
+// CreateGamePicks is the resolver for the CreateGamePicks field.
+func (r *mutationResolver) CreateGamePicks(ctx context.Context, input []*model.NewGamePickInput) ([]*model.GamePick, error) {
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	var gamePicks []*model.GamePick
+
+	// Process each pick in the array
+	for _, pickInput := range input {
+		id := uuid.New()
+
+		_, err := r.DB.Exec(ctx, `
+			INSERT INTO game_pick (
+				id, league_season_id, sport_season_week_id, user_id,
+				selected_team_name, opponent_team_name,
+				spread_selection, spread_result, points_assigned, is_finalized,
+				created_at, updated_at
+			) VALUES (
+				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), now()
+			)
+		`, id, pickInput.SeasonID, pickInput.WeekID, userID,
+			pickInput.SelectedTeamName, pickInput.OpponentTeamName,
+			pickInput.SpreadSelection, pickInput.SpreadResult, pickInput.PointsAssigned, false)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to create game pick %d: %w", len(gamePicks)+1, err)
+		}
+
+		gamePick := &model.GamePick{
+			ID:               id.String(),
+			SeasonID:         pickInput.SeasonID,
+			WeekID:           pickInput.WeekID,
+			UserID:           userID,
+			SelectedTeamName: pickInput.SelectedTeamName,
+			OpponentTeamName: pickInput.OpponentTeamName,
+			SpreadSelection:  pickInput.SpreadSelection,
+			SpreadResult:     pickInput.SpreadResult,
+			PointsAssigned:   pickInput.PointsAssigned,
+			IsFinalized:      false,
+		}
+
+		gamePicks = append(gamePicks, gamePick)
+	}
+
+	return gamePicks, nil
 }
 
 // CreateLeagueSeason is the resolver for the CreateLeagueSeason field.
@@ -220,6 +270,431 @@ func (r *queryResolver) GetPicksForUserBySeasonWeekID(ctx context.Context, seaso
 	}
 
 	return picks, nil
+}
+
+// GetMyWeeklyPicks is the resolver for the GetMyWeeklyPicks field.
+func (r *queryResolver) GetMyWeeklyPicks(ctx context.Context, seasonWeekID string) ([]*model.FormattedPick, error) {
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	rows, err := r.DB.Query(ctx, `
+		SELECT 
+			id, 
+			selected_team_name,
+			opponent_team_name, 
+			spread_selection, 
+			points_assigned,
+			is_finalized
+		FROM game_pick
+		WHERE sport_season_week_id = $1 AND user_id = $2
+	`, seasonWeekID, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var formattedPicks []*model.FormattedPick
+	for rows.Next() {
+		var id, selectedTeam, opponentTeam string
+		var spreadSelection, pointsAssigned int32
+		var isFinalized bool
+
+		err := rows.Scan(
+			&id,
+			&selectedTeam,
+			&opponentTeam,
+			&spreadSelection,
+			&pointsAssigned,
+			&isFinalized,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Format the game as "Away @ Home" - determine which team is home/away
+		game := fmt.Sprintf("%s @ %s", opponentTeam, selectedTeam)
+		if spreadSelection < 0 {
+			// If spread is negative, selected team is favored (usually home)
+			game = fmt.Sprintf("%s @ %s", opponentTeam, selectedTeam)
+		}
+
+		// Format spread with sign
+		spreadStr := fmt.Sprintf("%.1f", float64(spreadSelection)/10.0)
+		if spreadSelection > 0 {
+			spreadStr = "+" + spreadStr
+		}
+
+		// Determine status
+		status := "Pending"
+		if isFinalized {
+			status = "Completed"
+		}
+
+		formattedPicks = append(formattedPicks, &model.FormattedPick{
+			ID:             id,
+			Game:           game,
+			Selected:       selectedTeam,
+			Spread:         spreadStr,
+			PointsAssigned: pointsAssigned,
+			Status:         status,
+		})
+	}
+
+	return formattedPicks, nil
+}
+
+// SeasonLeaderboard is the resolver for the seasonLeaderboard field.
+func (r *queryResolver) SeasonLeaderboard(ctx context.Context, seasonID string) (*model.SeasonLeaderboard, error) {
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	// Query to get leaderboard data
+	query := `
+		SELECT
+			u.first_name || ' ' || u.last_name as username,
+			u.id,
+			COALESCE(SUM(CASE WHEN gp.is_finalized = true THEN gp.points_assigned ELSE 0 END), 0) as total_points
+		FROM user_league_association ula
+		JOIN app_user u ON ula.user_id = u.id
+		JOIN league_season ls ON ula.league_id = ls.league_id
+		LEFT JOIN game_pick gp ON gp.user_id = u.id AND gp.league_season_id = ls.id
+		WHERE ls.id = $1
+		GROUP BY u.id, u.first_name, u.last_name
+		ORDER BY total_points DESC
+	`
+
+	rows, err := r.DB.Query(ctx, query, seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query leaderboard: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []*model.LeaderboardEntry
+	rank := 1
+
+	for rows.Next() {
+		var username, dbUserID string
+		var totalPoints int32
+
+		if err := rows.Scan(&username, &dbUserID, &totalPoints); err != nil {
+			return nil, fmt.Errorf("failed to scan leaderboard row: %w", err)
+		}
+
+		isCurrentUser := dbUserID == userID
+
+		entries = append(entries, &model.LeaderboardEntry{
+			Rank:          int32(rank),
+			Username:      username,
+			Points:        totalPoints,
+			IsCurrentUser: isCurrentUser,
+		})
+		rank++
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error reading leaderboard rows: %w", rows.Err())
+	}
+
+	return &model.SeasonLeaderboard{
+		Entries: entries,
+	}, nil
+}
+
+// MySeasonPicks is the resolver for the mySeasonPicks field.
+func (r *queryResolver) MySeasonPicks(ctx context.Context, seasonID string) (*model.UserSeasonPicks, error) {
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	// Get the sport and year info for the season
+	var sport string
+	var yearStart, yearEnd int32
+	seasonQuery := `
+		SELECT ss.sport, ss.year_start, ss.year_end
+		FROM league_season ls
+		JOIN sport_season ss ON ls.sport_season_id = ss.id
+		WHERE ls.id = $1
+	`
+
+	err := r.DB.QueryRow(ctx, seasonQuery, seasonID).Scan(&sport, &yearStart, &yearEnd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get season info: %w", err)
+	}
+
+	// Get current week data
+	currentWeekData, err := GetCurrentWeekData(ctx, r.DB, sport, int(yearStart), int(yearEnd))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current week: %w", err)
+	}
+
+	// Query user's picks for current week
+	picksQuery := `
+		SELECT
+			gp.id,
+			gp.sport_season_week_id,
+			gp.selected_team_name,
+			gp.opponent_team_name,
+			gp.spread_selection,
+			gp.points_assigned,
+			gp.is_finalized,
+			gp.spread_result
+		FROM game_pick gp
+		WHERE gp.league_season_id = $1
+			AND gp.user_id = $2
+			AND gp.sport_season_week_id = $3
+	`
+
+	rows, err := r.DB.Query(ctx, picksQuery, seasonID, userID, currentWeekData.SportSeasonWeekID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query user picks: %w", err)
+	}
+	defer rows.Close()
+
+	var picks []*model.Pick
+	for rows.Next() {
+		var id, gameID, selectedTeam, opponentTeam string
+		var spreadSelection, pointsAssigned, spreadResult int32
+		var isFinalized bool
+
+		if err := rows.Scan(&id, &gameID, &selectedTeam, &opponentTeam, &spreadSelection, &pointsAssigned, &isFinalized, &spreadResult); err != nil {
+			return nil, fmt.Errorf("failed to scan pick row: %w", err)
+		}
+
+		// Determine pick result
+		var result *model.PickResult
+		if isFinalized {
+			if spreadResult > 0 {
+				winResult := model.PickResultWin
+				result = &winResult
+			} else {
+				lossResult := model.PickResultLoss
+				result = &lossResult
+			}
+		} else {
+			pendingResult := model.PickResultPending
+			result = &pendingResult
+		}
+
+		picks = append(picks, &model.Pick{
+			ID:           id,
+			GameID:       gameID,
+			HomeTeam:     selectedTeam,
+			AwayTeam:     opponentTeam,
+			SelectedTeam: selectedTeam,
+			Spread:       float64(spreadSelection) / 10.0, // Convert from stored integer
+			Points:       pointsAssigned,
+			Result:       result,
+		})
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error reading pick rows: %w", rows.Err())
+	}
+
+	// Parse current week number from the week data
+	var currentWeek int32
+	weekQuery := `
+		SELECT week_number
+		FROM sport_season_week
+		WHERE id = $1
+	`
+	err = r.DB.QueryRow(ctx, weekQuery, currentWeekData.SportSeasonWeekID).Scan(&currentWeek)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get week number: %w", err)
+	}
+
+	return &model.UserSeasonPicks{
+		CurrentWeek: currentWeek,
+		Picks:       picks,
+	}, nil
+}
+
+// SeasonLeaguePicks is the resolver for the seasonLeaguePicks field.
+func (r *queryResolver) SeasonLeaguePicks(ctx context.Context, seasonID string) (*model.SeasonLeaguePicks, error) {
+	userID, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	// Get the sport and year info for the season
+	var sport string
+	var yearStart, yearEnd int32
+	seasonQuery := `
+		SELECT ss.sport, ss.year_start, ss.year_end
+		FROM league_season ls
+		JOIN sport_season ss ON ls.sport_season_id = ss.id
+		WHERE ls.id = $1
+	`
+
+	err := r.DB.QueryRow(ctx, seasonQuery, seasonID).Scan(&sport, &yearStart, &yearEnd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get season info: %w", err)
+	}
+
+	// Get current week data
+	currentWeekData, err := GetCurrentWeekData(ctx, r.DB, sport, int(yearStart), int(yearEnd))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current week: %w", err)
+	}
+
+	// Query all league members' picks for current week (excluding current user)
+	picksQuery := `
+		SELECT
+			u.first_name || ' ' || u.last_name as username,
+			gp.id,
+			gp.sport_season_week_id,
+			gp.selected_team_name,
+			gp.opponent_team_name,
+			gp.spread_selection,
+			gp.points_assigned,
+			gp.is_finalized,
+			gp.spread_result
+		FROM user_league_association ula
+		JOIN app_user u ON ula.user_id = u.id
+		JOIN league_season ls ON ula.league_id = ls.league_id
+		LEFT JOIN game_pick gp ON gp.user_id = u.id AND gp.league_season_id = ls.id AND gp.sport_season_week_id = $2
+		WHERE ls.id = $1 AND u.id != $3
+		ORDER BY u.first_name, u.last_name, gp.id
+	`
+
+	rows, err := r.DB.Query(ctx, picksQuery, seasonID, currentWeekData.SportSeasonWeekID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query league picks: %w", err)
+	}
+	defer rows.Close()
+
+	// Group picks by username
+	userPicksMap := make(map[string][]*model.Pick)
+
+	for rows.Next() {
+		var username string
+		var id, gameID, selectedTeam, opponentTeam sql.NullString
+		var spreadSelection, pointsAssigned, spreadResult sql.NullInt32
+		var isFinalized sql.NullBool
+
+		if err := rows.Scan(&username, &id, &gameID, &selectedTeam, &opponentTeam, &spreadSelection, &pointsAssigned, &isFinalized, &spreadResult); err != nil {
+			return nil, fmt.Errorf("failed to scan league pick row: %w", err)
+		}
+
+		// Skip if no pick exists for this user
+		if !id.Valid {
+			// Initialize empty slice for users with no picks
+			if _, exists := userPicksMap[username]; !exists {
+				userPicksMap[username] = []*model.Pick{}
+			}
+			continue
+		}
+
+		// Determine pick result
+		var result *model.PickResult
+		if isFinalized.Valid && isFinalized.Bool {
+			if spreadResult.Valid && spreadResult.Int32 > 0 {
+				winResult := model.PickResultWin
+				result = &winResult
+			} else {
+				lossResult := model.PickResultLoss
+				result = &lossResult
+			}
+		} else {
+			pendingResult := model.PickResultPending
+			result = &pendingResult
+		}
+
+		pick := &model.Pick{
+			ID:           id.String,
+			GameID:       gameID.String,
+			HomeTeam:     selectedTeam.String,
+			AwayTeam:     opponentTeam.String,
+			SelectedTeam: selectedTeam.String,
+			Spread:       float64(spreadSelection.Int32) / 10.0,
+			Points:       pointsAssigned.Int32,
+			Result:       result,
+		}
+
+		userPicksMap[username] = append(userPicksMap[username], pick)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error reading league pick rows: %w", rows.Err())
+	}
+
+	// Convert map to slice
+	var userPicks []*model.UserPicks
+	for username, picks := range userPicksMap {
+		userPicks = append(userPicks, &model.UserPicks{
+			Username: username,
+			Picks:    picks,
+		})
+	}
+
+	// Get current week number
+	var currentWeek int32
+	weekQuery := `
+		SELECT week_number
+		FROM sport_season_week
+		WHERE id = $1
+	`
+	err = r.DB.QueryRow(ctx, weekQuery, currentWeekData.SportSeasonWeekID).Scan(&currentWeek)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get week number: %w", err)
+	}
+
+	return &model.SeasonLeaguePicks{
+		CurrentWeek: currentWeek,
+		UserPicks:   userPicks,
+	}, nil
+}
+
+// GetCurrentSeasonWeek is the resolver for the getCurrentSeasonWeek field.
+func (r *queryResolver) GetCurrentSeasonWeek(ctx context.Context, seasonID string) (*model.SeasonWeek, error) {
+	_, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("Unauthorized")
+	}
+
+	// Get the sport and year info for the season
+	var sport string
+	var yearStart, yearEnd int32
+	seasonQuery := `
+		SELECT ss.sport, ss.year_start, ss.year_end
+		FROM league_season ls
+		JOIN sport_season ss ON ls.sport_season_id = ss.id
+		WHERE ls.id = $1
+	`
+
+	err := r.DB.QueryRow(ctx, seasonQuery, seasonID).Scan(&sport, &yearStart, &yearEnd)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get season info: %w", err)
+	}
+
+	// Get current week data
+	currentWeekData, err := GetCurrentWeekData(ctx, r.DB, sport, int(yearStart), int(yearEnd))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current week: %w", err)
+	}
+
+	// Get week number
+	var weekNumber int32
+	weekQuery := `
+		SELECT week_number
+		FROM sport_season_week
+		WHERE id = $1
+	`
+	err = r.DB.QueryRow(ctx, weekQuery, currentWeekData.SportSeasonWeekID).Scan(&weekNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get week number: %w", err)
+	}
+
+	return &model.SeasonWeek{
+		WeekID:     currentWeekData.SportSeasonWeekID,
+		WeekNumber: weekNumber,
+	}, nil
 }
 
 // Mutation returns MutationResolver implementation.

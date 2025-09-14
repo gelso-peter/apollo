@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,13 +23,20 @@ func GetCurrentWeekData(ctx context.Context, db *pgxpool.Pool, sport string, yea
 			AND ss.year_start = $2
 			AND ss.year_end = $3
     	`
-	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonWeekData.SportSeasonWeekID, &sportSeasonWeekData.WeekStart, &sportSeasonWeekData.WeekEnd)
+
+	var startDate, endDate time.Time
+	err := db.QueryRow(ctx, query, sport, yearStart, yearEnd).Scan(&sportSeasonWeekData.SportSeasonWeekID, &startDate, &endDate)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("no week data found for current sport %s for years %d - %d", sport, yearStart, yearEnd)
 		}
 		return nil, err
 	}
+
+	// Convert time.Time to string in RFC3339 format
+	sportSeasonWeekData.WeekStart = startDate.Format("2006-01-02")
+	sportSeasonWeekData.WeekEnd = endDate.Format("2006-01-02")
+
 	return sportSeasonWeekData, nil
 }
 

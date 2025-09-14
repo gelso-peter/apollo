@@ -2,6 +2,22 @@
 
 package model
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+)
+
+type FormattedPick struct {
+	ID             string `json:"id"`
+	Game           string `json:"game"`
+	Selected       string `json:"selected"`
+	Spread         string `json:"spread"`
+	PointsAssigned int32  `json:"pointsAssigned"`
+	Status         string `json:"status"`
+}
+
 type GameOdds struct {
 	HomeTeam     *TeamOddsInfo `json:"homeTeam"`
 	AwayTeam     *TeamOddsInfo `json:"awayTeam"`
@@ -21,6 +37,13 @@ type GamePick struct {
 	SpreadResult     int32  `json:"spread_result"`
 	PointsAssigned   int32  `json:"points_assigned"`
 	IsFinalized      bool   `json:"isFinalized"`
+}
+
+type LeaderboardEntry struct {
+	Rank          int32  `json:"rank"`
+	Username      string `json:"username"`
+	Points        int32  `json:"points"`
+	IsCurrentUser bool   `json:"isCurrentUser"`
 }
 
 type Mutation struct {
@@ -43,6 +66,17 @@ type NewSeasonInput struct {
 	Sport     string `json:"sport"`
 }
 
+type Pick struct {
+	ID           string      `json:"id"`
+	GameID       string      `json:"gameId"`
+	HomeTeam     string      `json:"homeTeam"`
+	AwayTeam     string      `json:"awayTeam"`
+	SelectedTeam string      `json:"selectedTeam"`
+	Spread       float64     `json:"spread"`
+	Points       int32       `json:"points"`
+	Result       *PickResult `json:"result,omitempty"`
+}
+
 type Query struct {
 }
 
@@ -52,6 +86,20 @@ type Season struct {
 	YearStart int32  `json:"year_start"`
 	YearEnd   int32  `json:"year_end"`
 	Sport     string `json:"sport"`
+}
+
+type SeasonLeaderboard struct {
+	Entries []*LeaderboardEntry `json:"entries"`
+}
+
+type SeasonLeaguePicks struct {
+	CurrentWeek int32        `json:"currentWeek"`
+	UserPicks   []*UserPicks `json:"userPicks"`
+}
+
+type SeasonWeek struct {
+	WeekID     string `json:"weekId"`
+	WeekNumber int32  `json:"weekNumber"`
 }
 
 type SportSeasonInfo struct {
@@ -70,4 +118,71 @@ type SportSeasonWeekData struct {
 type TeamOddsInfo struct {
 	Name   string  `json:"name"`
 	Spread float64 `json:"spread"`
+}
+
+type UserPicks struct {
+	Username string  `json:"username"`
+	Picks    []*Pick `json:"picks"`
+}
+
+type UserSeasonPicks struct {
+	CurrentWeek int32   `json:"currentWeek"`
+	Picks       []*Pick `json:"picks"`
+}
+
+type PickResult string
+
+const (
+	PickResultWin     PickResult = "WIN"
+	PickResultLoss    PickResult = "LOSS"
+	PickResultPending PickResult = "PENDING"
+)
+
+var AllPickResult = []PickResult{
+	PickResultWin,
+	PickResultLoss,
+	PickResultPending,
+}
+
+func (e PickResult) IsValid() bool {
+	switch e {
+	case PickResultWin, PickResultLoss, PickResultPending:
+		return true
+	}
+	return false
+}
+
+func (e PickResult) String() string {
+	return string(e)
+}
+
+func (e *PickResult) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = PickResult(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid PickResult", str)
+	}
+	return nil
+}
+
+func (e PickResult) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *PickResult) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e PickResult) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

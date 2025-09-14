@@ -19,6 +19,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
+	"github.com/rs/cors"
 )
 
 const defaultPort = "8080"
@@ -75,9 +76,16 @@ func main() {
 	mainMux.Handle("/api/", http.StripPrefix("/api", restRouter))
 
 	// Create HTTP server instance
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: mainMux,
+		Handler: c.Handler(mainMux),
 	}
 
 	// Run server in a goroutine so main can listen for signals

@@ -82,14 +82,8 @@ func mapOddsResponseToGames(allGames []OddsGameResponse) ([]Game, error) {
 }
 
 func (s *oddsServiceImpl) GetNFLGames(from, to string) ([]Game, error) {
-	// USE FOR FOOTBALL WHEN AVAILABLE
-	// url := fmt.Sprintf(
-	// 	"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds?regions=us&markets=spreads&oddsFormat=american&commenceTimeFrom=%s&commenceTimeTo=%s&apiKey=%s",
-	// 	from, to, s.apiKey,
-	// )
-
 	url := fmt.Sprintf(
-		"https://api.the-odds-api.com/v4/sports/baseball_mlb/odds?regions=us&markets=spreads&oddsFormat=american&commenceTimeFrom=%s&commenceTimeTo=%s&apiKey=%s",
+		"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds?regions=us&markets=spreads&oddsFormat=american&commenceTimeFrom=%s&commenceTimeTo=%s&apiKey=%s",
 		from, to, s.apiKey,
 	)
 
