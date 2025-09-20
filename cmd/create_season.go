@@ -23,7 +23,7 @@ func init() {
 	CreateSeasonCmd.Flags().StringVarP(&sport, "sport", "", "", "Sport name (e.g. football)")
 	CreateSeasonCmd.Flags().IntVarP(&yearStart, "year-start", "", 2025, "Start year")
 	CreateSeasonCmd.Flags().IntVarP(&yearEnd, "year-end", "", 2026, "End year")
-	CreateSeasonCmd.Flags().IntVarP(&numWeeks, "weeks", "", 18, "Number of weeks")
+	CreateSeasonCmd.Flags().IntVarP(&numWeeks, "weeks", "", 23, "Number of weeks")
 
 	// Mark sport and year-start as required
 	CreateSeasonCmd.MarkFlagRequired("sport")
@@ -80,8 +80,7 @@ func CreateSportSeason(ctx context.Context, db *pgxpool.Pool, sport string, year
 }
 
 func CreateSeasonWeeks(ctx context.Context, db *pgxpool.Pool, seasonID uuid.UUID, yearStart int, numberOfWeeks int) error {
-	// Set first week start date (e.g. first Sunday of September)
-	startDate := time.Date(yearStart, time.September, 5, 0, 0, 0, 0, time.UTC)
+	startDate := time.Date(2025, time.September, 2, 0, 0, 0, 0, time.UTC)
 	for startDate.Weekday() != time.Thursday {
 		startDate = startDate.AddDate(0, 0, 1) // add 1 day
 	}
