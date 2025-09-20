@@ -8,6 +8,7 @@ import (
 type OddsService interface {
 	GetNFLGames(from, to string) ([]Game, error)
 	GetGameByID(gameID string) (*Game, error)
+	GetCompletedGames(from, to string) ([]Game, error)
 }
 
 var (

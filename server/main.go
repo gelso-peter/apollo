@@ -6,6 +6,7 @@ import (
 	"apollo/graph"
 	"apollo/middleware"
 	"apollo/router"
+	"apollo/services/cron"
 	"apollo/services/odds.go"
 	"context"
 	"log"
@@ -46,6 +47,14 @@ func main() {
 
 	odds.InitOddsService(oddsApiKey)
 	oddsService := odds.GetOddsService()
+
+	// Setup cron job for game finalization
+	gameFinalizer := cron.NewGameFinalizer(db.DB, oddsService)
+	cronStop := make(chan struct{})
+
+	// Run cron job on specific days at 6:00 AM
+	go gameFinalizer.RunPeriodically(cronStop)
+	log.Println("Game finalization cron job started (runs Fri/Sun/Mon/Tue at 6:00 AM)")
 
 	// Setup GraphQL server
 	graphResolvers := &graph.Resolver{
@@ -97,10 +106,10 @@ func main() {
 	}()
 
 	// Wait for interrupt signal and gracefully shutdown the server
-	gracefulShutdown(srv)
+	gracefulShutdown(srv, cronStop)
 }
 
-func gracefulShutdown(srv *http.Server) {
+func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
 	// Channel to listen for termination signals
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -109,6 +118,10 @@ func gracefulShutdown(srv *http.Server) {
 	<-stop
 
 	log.Println("Shutting down server...")
+
+	// Stop the cron job first
+	close(cronStop)
+	log.Println("Cron job stopped")
 
 	// Context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

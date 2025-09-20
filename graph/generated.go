@@ -56,6 +56,12 @@ type ComplexityRoot struct {
 		Status         func(childComplexity int) int
 	}
 
+	GameFinalizationResult struct {
+		Message        func(childComplexity int) int
+		ProcessedPicks func(childComplexity int) int
+		Success        func(childComplexity int) int
+	}
+
 	GameOdds struct {
 		AwayTeam     func(childComplexity int) int
 		CommenceTime func(childComplexity int) int
@@ -89,6 +95,7 @@ type ComplexityRoot struct {
 		CreateGamePick     func(childComplexity int, input model.NewGamePickInput) int
 		CreateGamePicks    func(childComplexity int, input []*model.NewGamePickInput) int
 		CreateLeagueSeason func(childComplexity int, input model.NewSeasonInput) int
+		FinalizeGames      func(childComplexity int) int
 	}
 
 	Pick struct {
@@ -168,6 +175,7 @@ type MutationResolver interface {
 	CreateGamePick(ctx context.Context, input model.NewGamePickInput) (*model.GamePick, error)
 	CreateGamePicks(ctx context.Context, input []*model.NewGamePickInput) ([]*model.GamePick, error)
 	CreateLeagueSeason(ctx context.Context, input model.NewSeasonInput) (*model.Season, error)
+	FinalizeGames(ctx context.Context) (*model.GameFinalizationResult, error)
 }
 type QueryResolver interface {
 	GetLeagueSeasonsByID(ctx context.Context, leagueID string) ([]*model.Season, error)
@@ -240,6 +248,27 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.FormattedPick.Status(childComplexity), true
+
+	case "GameFinalizationResult.message":
+		if e.complexity.GameFinalizationResult.Message == nil {
+			break
+		}
+
+		return e.complexity.GameFinalizationResult.Message(childComplexity), true
+
+	case "GameFinalizationResult.processedPicks":
+		if e.complexity.GameFinalizationResult.ProcessedPicks == nil {
+			break
+		}
+
+		return e.complexity.GameFinalizationResult.ProcessedPicks(childComplexity), true
+
+	case "GameFinalizationResult.success":
+		if e.complexity.GameFinalizationResult.Success == nil {
+			break
+		}
+
+		return e.complexity.GameFinalizationResult.Success(childComplexity), true
 
 	case "GameOdds.awayTeam":
 		if e.complexity.GameOdds.AwayTeam == nil {
@@ -416,6 +445,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateLeagueSeason(childComplexity, args["input"].(model.NewSeasonInput)), true
+
+	case "Mutation.FinalizeGames":
+		if e.complexity.Mutation.FinalizeGames == nil {
+			break
+		}
+
+		return e.complexity.Mutation.FinalizeGames(childComplexity), true
 
 	case "Pick.awayTeam":
 		if e.complexity.Pick.AwayTeam == nil {
@@ -1463,6 +1499,138 @@ func (ec *executionContext) fieldContext_FormattedPick_status(_ context.Context,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameFinalizationResult_success(ctx context.Context, field graphql.CollectedField, obj *model.GameFinalizationResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameFinalizationResult_success(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Success, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameFinalizationResult_success(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameFinalizationResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameFinalizationResult_message(ctx context.Context, field graphql.CollectedField, obj *model.GameFinalizationResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameFinalizationResult_message(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Message, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameFinalizationResult_message(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameFinalizationResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GameFinalizationResult_processedPicks(ctx context.Context, field graphql.CollectedField, obj *model.GameFinalizationResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GameFinalizationResult_processedPicks(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ProcessedPicks, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GameFinalizationResult_processedPicks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GameFinalizationResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2581,6 +2749,58 @@ func (ec *executionContext) fieldContext_Mutation_CreateLeagueSeason(ctx context
 	if fc.Args, err = ec.field_Mutation_CreateLeagueSeason_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_FinalizeGames(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_FinalizeGames(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().FinalizeGames(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.GameFinalizationResult)
+	fc.Result = res
+	return ec.marshalNGameFinalizationResult2ᚖapolloᚋgraphᚋmodelᚐGameFinalizationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_FinalizeGames(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_GameFinalizationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_GameFinalizationResult_message(ctx, field)
+			case "processedPicks":
+				return ec.fieldContext_GameFinalizationResult_processedPicks(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type GameFinalizationResult", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -6789,6 +7009,55 @@ func (ec *executionContext) _FormattedPick(ctx context.Context, sel ast.Selectio
 	return out
 }
 
+var gameFinalizationResultImplementors = []string{"GameFinalizationResult"}
+
+func (ec *executionContext) _GameFinalizationResult(ctx context.Context, sel ast.SelectionSet, obj *model.GameFinalizationResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, gameFinalizationResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("GameFinalizationResult")
+		case "success":
+			out.Values[i] = ec._GameFinalizationResult_success(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "message":
+			out.Values[i] = ec._GameFinalizationResult_message(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "processedPicks":
+			out.Values[i] = ec._GameFinalizationResult_processedPicks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var gameOddsImplementors = []string{"GameOdds"}
 
 func (ec *executionContext) _GameOdds(ctx context.Context, sel ast.SelectionSet, obj *model.GameOdds) graphql.Marshaler {
@@ -7027,6 +7296,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "CreateLeagueSeason":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_CreateLeagueSeason(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "FinalizeGames":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_FinalizeGames(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -8191,6 +8467,20 @@ func (ec *executionContext) marshalNFormattedPick2ᚖapolloᚋgraphᚋmodelᚐFo
 		return graphql.Null
 	}
 	return ec._FormattedPick(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNGameFinalizationResult2apolloᚋgraphᚋmodelᚐGameFinalizationResult(ctx context.Context, sel ast.SelectionSet, v model.GameFinalizationResult) graphql.Marshaler {
+	return ec._GameFinalizationResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGameFinalizationResult2ᚖapolloᚋgraphᚋmodelᚐGameFinalizationResult(ctx context.Context, sel ast.SelectionSet, v *model.GameFinalizationResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._GameFinalizationResult(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNGameOdds2ᚕᚖapolloᚋgraphᚋmodelᚐGameOdds(ctx context.Context, sel ast.SelectionSet, v []*model.GameOdds) graphql.Marshaler {

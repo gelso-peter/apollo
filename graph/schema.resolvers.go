@@ -7,6 +7,7 @@ package graph
 import (
 	"apollo/graph/model"
 	"apollo/internal/contextutil"
+	"apollo/services/cron"
 	"context"
 	"database/sql"
 	"fmt"
@@ -111,115 +112,6 @@ func (r *mutationResolver) CreateGamePicks(ctx context.Context, input []*model.N
 	return gamePicks, nil
 }
 
-// validateGamePicks validates all picks before allowing them to be saved
-func (r *mutationResolver) validateGamePicks(ctx context.Context, userID string, input []*model.NewGamePickInput) error {
-	if len(input) == 0 {
-		return fmt.Errorf("no picks provided")
-	}
-
-	// Get the week ID from first pick (all picks should be for same week)
-	weekID := input[0].WeekID
-
-	// Validate all picks are for the same week
-	for _, pick := range input {
-		if pick.WeekID != weekID {
-			return fmt.Errorf("all picks must be for the same week")
-		}
-	}
-
-	// Get existing picks for this user and week
-	existingPicks, err := r.getExistingPicksForWeek(ctx, userID, weekID)
-	if err != nil {
-		return fmt.Errorf("failed to check existing picks: %w", err)
-	}
-
-	// Check if user already has picks for this week
-	if len(existingPicks) > 0 {
-		return fmt.Errorf("user already has picks for this week")
-	}
-
-	// Validate no duplicate points assignments within the new picks
-	pointsUsed := make(map[int32]bool)
-	oddsGamesUsed := make(map[string]bool)
-
-	for _, pick := range input {
-		// Check for duplicate points assignment
-		if pointsUsed[pick.PointsAssigned] {
-			return fmt.Errorf("duplicate points assignment: %d points can only be assigned to one game", pick.PointsAssigned)
-		}
-		pointsUsed[pick.PointsAssigned] = true
-
-		// Check for duplicate odds game IDs
-		if oddsGamesUsed[pick.OddsGameID] {
-			return fmt.Errorf("duplicate game selection: game %s can only be picked once", pick.OddsGameID)
-		}
-		oddsGamesUsed[pick.OddsGameID] = true
-	}
-
-	return nil
-}
-
-// getExistingPicksForWeek gets existing picks for a user in a specific week
-func (r *mutationResolver) getExistingPicksForWeek(ctx context.Context, userID, weekID string) ([]*model.GamePick, error) {
-	rows, err := r.DB.Query(ctx, `
-		SELECT
-			id, league_season_id, sport_season_week_id, user_id,
-			selected_team_name, opponent_team_name, spread_selection,
-			spread_result, points_assigned, is_finalized, odds_game_id
-		FROM game_pick
-		WHERE sport_season_week_id = $1 AND user_id = $2
-	`, weekID, userID)
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var picks []*model.GamePick
-	for rows.Next() {
-		var pick model.GamePick
-		err := rows.Scan(
-			&pick.ID, &pick.SeasonID, &pick.WeekID, &pick.UserID,
-			&pick.SelectedTeamName, &pick.OpponentTeamName, &pick.SpreadSelection,
-			&pick.SpreadResult, &pick.PointsAssigned, &pick.IsFinalized, &pick.OddsGameID,
-		)
-		if err != nil {
-			return nil, err
-		}
-		picks = append(picks, &pick)
-	}
-
-	return picks, nil
-}
-
-// getUserPickedGamesForCurrentWeek returns a map of odds_game_ids that the user has already picked
-func (r *queryResolver) getUserPickedGamesForCurrentWeek(ctx context.Context, userID string) (map[string]bool, error) {
-	// Query to get all odds_game_ids the user has picked across all their seasons/weeks
-	// Since we don't know the specific season/week context in GetWeeklyNflGameSpreads,
-	// we'll check against all their existing picks to be safe
-	rows, err := r.DB.Query(ctx, `
-		SELECT DISTINCT odds_game_id
-		FROM game_pick
-		WHERE user_id = $1 AND odds_game_id IS NOT NULL
-	`, userID)
-
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	pickedGames := make(map[string]bool)
-	for rows.Next() {
-		var oddsGameID string
-		if err := rows.Scan(&oddsGameID); err != nil {
-			return nil, err
-		}
-		pickedGames[oddsGameID] = true
-	}
-
-	return pickedGames, nil
-}
-
 // CreateLeagueSeason is the resolver for the CreateLeagueSeason field.
 func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.NewSeasonInput) (*model.Season, error) {
 	league_season_id := uuid.New()
@@ -248,6 +140,38 @@ func (r *mutationResolver) CreateLeagueSeason(ctx context.Context, input model.N
 		YearStart: input.YearStart,
 		YearEnd:   input.YearEnd,
 		Sport:     input.Sport,
+	}, nil
+}
+
+// FinalizeGames is the resolver for the FinalizeGames field.
+func (r *mutationResolver) FinalizeGames(ctx context.Context) (*model.GameFinalizationResult, error) {
+	// This is an admin-only operation - in a real app, you'd add proper authorization
+	// For now, just require a user to be authenticated
+	_, ok := contextutil.GetUserIDFromContext(ctx)
+	if !ok {
+		return &model.GameFinalizationResult{
+			Success:        false,
+			Message:        "Unauthorized - admin access required",
+			ProcessedPicks: 0,
+		}, nil
+	}
+
+	// Create game finalizer instance
+	gameFinalizer := cron.NewGameFinalizer(r.DB, r.OddsService)
+
+	err := gameFinalizer.FinalizeGames()
+	if err != nil {
+		return &model.GameFinalizationResult{
+			Success:        false,
+			Message:        fmt.Sprintf("Error during game finalization: %v", err),
+			ProcessedPicks: 0,
+		}, nil
+	}
+
+	return &model.GameFinalizationResult{
+		Success:        true,
+		Message:        "Game finalization completed successfully",
+		ProcessedPicks: 0, // You could modify the FinalizeGames method to return the count
 	}, nil
 }
 
@@ -844,3 +768,113 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//   - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//     it when you're done.
+//   - You have helper methods in this file. Move them out to keep these resolver files clean.
+func (r *mutationResolver) validateGamePicks(ctx context.Context, userID string, input []*model.NewGamePickInput) error {
+	if len(input) == 0 {
+		return fmt.Errorf("no picks provided")
+	}
+
+	// Get the week ID from first pick (all picks should be for same week)
+	weekID := input[0].WeekID
+
+	// Validate all picks are for the same week
+	for _, pick := range input {
+		if pick.WeekID != weekID {
+			return fmt.Errorf("all picks must be for the same week")
+		}
+	}
+
+	// Get existing picks for this user and week
+	existingPicks, err := r.getExistingPicksForWeek(ctx, userID, weekID)
+	if err != nil {
+		return fmt.Errorf("failed to check existing picks: %w", err)
+	}
+
+	// Check if user already has picks for this week
+	if len(existingPicks) > 0 {
+		return fmt.Errorf("user already has picks for this week")
+	}
+
+	// Validate no duplicate points assignments within the new picks
+	pointsUsed := make(map[int32]bool)
+	oddsGamesUsed := make(map[string]bool)
+
+	for _, pick := range input {
+		// Check for duplicate points assignment
+		if pointsUsed[pick.PointsAssigned] {
+			return fmt.Errorf("duplicate points assignment: %d points can only be assigned to one game", pick.PointsAssigned)
+		}
+		pointsUsed[pick.PointsAssigned] = true
+
+		// Check for duplicate odds game IDs
+		if oddsGamesUsed[pick.OddsGameID] {
+			return fmt.Errorf("duplicate game selection: game %s can only be picked once", pick.OddsGameID)
+		}
+		oddsGamesUsed[pick.OddsGameID] = true
+	}
+
+	return nil
+}
+func (r *mutationResolver) getExistingPicksForWeek(ctx context.Context, userID, weekID string) ([]*model.GamePick, error) {
+	rows, err := r.DB.Query(ctx, `
+		SELECT
+			id, league_season_id, sport_season_week_id, user_id,
+			selected_team_name, opponent_team_name, spread_selection,
+			spread_result, points_assigned, is_finalized, odds_game_id
+		FROM game_pick
+		WHERE sport_season_week_id = $1 AND user_id = $2
+	`, weekID, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var picks []*model.GamePick
+	for rows.Next() {
+		var pick model.GamePick
+		err := rows.Scan(
+			&pick.ID, &pick.SeasonID, &pick.WeekID, &pick.UserID,
+			&pick.SelectedTeamName, &pick.OpponentTeamName, &pick.SpreadSelection,
+			&pick.SpreadResult, &pick.PointsAssigned, &pick.IsFinalized, &pick.OddsGameID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		picks = append(picks, &pick)
+	}
+
+	return picks, nil
+}
+func (r *queryResolver) getUserPickedGamesForCurrentWeek(ctx context.Context, userID string) (map[string]bool, error) {
+	// Query to get all odds_game_ids the user has picked across all their seasons/weeks
+	// Since we don't know the specific season/week context in GetWeeklyNflGameSpreads,
+	// we'll check against all their existing picks to be safe
+	rows, err := r.DB.Query(ctx, `
+		SELECT DISTINCT odds_game_id
+		FROM game_pick
+		WHERE user_id = $1 AND odds_game_id IS NOT NULL
+	`, userID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	pickedGames := make(map[string]bool)
+	for rows.Next() {
+		var oddsGameID string
+		if err := rows.Scan(&oddsGameID); err != nil {
+			return nil, err
+		}
+		pickedGames[oddsGameID] = true
+	}
+
+	return pickedGames, nil
+}

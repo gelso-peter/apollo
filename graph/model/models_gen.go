@@ -18,6 +18,12 @@ type FormattedPick struct {
 	Status         string `json:"status"`
 }
 
+type GameFinalizationResult struct {
+	Success        bool   `json:"success"`
+	Message        string `json:"message"`
+	ProcessedPicks int32  `json:"processedPicks"`
+}
+
 type GameOdds struct {
 	HomeTeam     *TeamOddsInfo `json:"homeTeam"`
 	AwayTeam     *TeamOddsInfo `json:"awayTeam"`

@@ -7,6 +7,7 @@ type Mutation {
   CreateGamePick(input: NewGamePickInput!): GamePick!
   CreateGamePicks(input: [NewGamePickInput!]!): [GamePick!]!
   CreateLeagueSeason(input: NewSeasonInput!): Season!
+  FinalizeGames: GameFinalizationResult!
 }
 
 # POST
@@ -142,4 +143,10 @@ type SeasonLeaguePicks {
 type SeasonWeek {
   weekId: ID!
   weekNumber: Int!
+}
+
+type GameFinalizationResult {
+  success: Boolean!
+  message: String!
+  processedPicks: Int!
 }

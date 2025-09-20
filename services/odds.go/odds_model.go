@@ -9,13 +9,22 @@ type OddsGameResponse struct {
 	AwayTeam     string      `json:"away_team"`
 	CommenceTime time.Time   `json:"commence_time"`
 	Bookmakers   []Bookmaker `json:"bookmakers"`
+	Completed    bool        `json:"completed"`
+	Scores       []TeamScore `json:"scores,omitempty"`
 }
 
 type Game struct {
-	ID           string    `json:"id"`
-	SportKey     string    `json:"sport_key"`
-	CommenceTime time.Time `json:"commence_time"`
-	Spreads      Spread    `json:"spreads"`
+	ID           string      `json:"id"`
+	SportKey     string      `json:"sport_key"`
+	CommenceTime time.Time   `json:"commence_time"`
+	Spreads      Spread      `json:"spreads"`
+	Completed    bool        `json:"completed"`
+	Scores       []TeamScore `json:"scores,omitempty"`
+}
+
+type TeamScore struct {
+	Name  string `json:"name"`
+	Score int32  `json:"score"`
 }
 
 type Bookmaker struct {

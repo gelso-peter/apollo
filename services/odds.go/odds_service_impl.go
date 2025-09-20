@@ -69,6 +69,8 @@ func mapOddsResponseToGames(allGames []OddsGameResponse) ([]Game, error) {
 			ID:           gameResp.ID,
 			SportKey:     gameResp.SportKey,
 			CommenceTime: gameResp.CommenceTime,
+			Completed:    gameResp.Completed,
+			Scores:       gameResp.Scores,
 			Spreads: Spread{
 				HomeTeam: home,
 				AwayTeam: away,
@@ -130,4 +132,45 @@ func (s *oddsServiceImpl) GetGameByID(gameID string) (*Game, error) {
 		}
 	}
 	return nil, fmt.Errorf("game not found")
+}
+
+func (s *oddsServiceImpl) GetCompletedGames(from, to string) ([]Game, error) {
+	url := fmt.Sprintf(
+		"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/scores?daysFrom=1&apiKey=%s",
+		s.apiKey,
+	)
+
+	resp, err := s.client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch completed games: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("non-200 response: %s", resp.Status)
+	}
+
+	var allGames []OddsGameResponse
+	if err := json.NewDecoder(resp.Body).Decode(&allGames); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	var completedGames []Game
+	for _, gameResp := range allGames {
+		if !gameResp.Completed {
+			continue
+		}
+
+		game := Game{
+			ID:           gameResp.ID,
+			SportKey:     gameResp.SportKey,
+			CommenceTime: gameResp.CommenceTime,
+			Completed:    gameResp.Completed,
+			Scores:       gameResp.Scores,
+		}
+
+		completedGames = append(completedGames, game)
+	}
+
+	return completedGames, nil
 }
