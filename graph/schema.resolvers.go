@@ -8,6 +8,7 @@ import (
 	"apollo/graph/model"
 	"apollo/internal/contextutil"
 	"apollo/services/cron"
+	"apollo/services/leaderboard"
 	"context"
 	"database/sql"
 	"fmt"
@@ -416,51 +417,28 @@ func (r *queryResolver) SeasonLeaderboard(ctx context.Context, seasonID string) 
 		return nil, fmt.Errorf("Unauthorized")
 	}
 
-	// Query to get leaderboard data
-	query := `
-		SELECT
-			u.first_name || ' ' || u.last_name as username,
-			u.id,
-			COALESCE(SUM(CASE WHEN gp.is_finalized = true THEN gp.points_assigned ELSE 0 END), 0) as total_points
-		FROM user_league_association ula
-		JOIN app_user u ON ula.user_id = u.id
-		JOIN league_season ls ON ula.league_id = ls.league_id
-		LEFT JOIN game_pick gp ON gp.user_id = u.id AND gp.league_season_id = ls.id
-		WHERE ls.id = $1
-		GROUP BY u.id, u.first_name, u.last_name
-		ORDER BY total_points DESC
-	`
+	// Create leaderboard service
+	leaderboardService := leaderboard.NewLeaderboardService(r.DB)
 
-	rows, err := r.DB.Query(ctx, query, seasonID)
+	// Get leaderboard data with win statistics
+	serviceLeaderboard, err := leaderboardService.GetSeasonLeaderboard(seasonID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query leaderboard: %w", err)
+		return nil, fmt.Errorf("failed to get season leaderboard: %w", err)
 	}
-	defer rows.Close()
 
+	// Convert service response to GraphQL model
 	var entries []*model.LeaderboardEntry
-	rank := 1
-
-	for rows.Next() {
-		var username, dbUserID string
-		var totalPoints int32
-
-		if err := rows.Scan(&username, &dbUserID, &totalPoints); err != nil {
-			return nil, fmt.Errorf("failed to scan leaderboard row: %w", err)
-		}
-
-		isCurrentUser := dbUserID == userID
+	for _, entry := range serviceLeaderboard.Entries {
+		isCurrentUser := entry.UserID == userID
 
 		entries = append(entries, &model.LeaderboardEntry{
-			Rank:          int32(rank),
-			Username:      username,
-			Points:        totalPoints,
+			Rank:          entry.Rank,
+			Username:      entry.FirstName + " " + entry.LastName,
+			Points:        entry.TotalPoints,
 			IsCurrentUser: isCurrentUser,
+			WinningPicks:  entry.WinningPicks,
+			WinRate:       entry.WinRate,
 		})
-		rank++
-	}
-
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("error reading leaderboard rows: %w", rows.Err())
 	}
 
 	return &model.SeasonLeaderboard{
@@ -760,21 +738,6 @@ func (r *queryResolver) GetCurrentSeasonWeek(ctx context.Context, seasonID strin
 	}, nil
 }
 
-// Mutation returns MutationResolver implementation.
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
-
-// Query returns QueryResolver implementation.
-func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
-
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//   - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//     it when you're done.
-//   - You have helper methods in this file. Move them out to keep these resolver files clean.
 func (r *mutationResolver) validateGamePicks(ctx context.Context, userID string, input []*model.NewGamePickInput) error {
 	if len(input) == 0 {
 		return fmt.Errorf("no picks provided")
@@ -821,6 +784,7 @@ func (r *mutationResolver) validateGamePicks(ctx context.Context, userID string,
 
 	return nil
 }
+
 func (r *mutationResolver) getExistingPicksForWeek(ctx context.Context, userID, weekID string) ([]*model.GamePick, error) {
 	rows, err := r.DB.Query(ctx, `
 		SELECT
@@ -852,6 +816,7 @@ func (r *mutationResolver) getExistingPicksForWeek(ctx context.Context, userID, 
 
 	return picks, nil
 }
+
 func (r *queryResolver) getUserPickedGamesForCurrentWeek(ctx context.Context, userID string) (map[string]bool, error) {
 	// Query to get all odds_game_ids the user has picked across all their seasons/weeks
 	// Since we don't know the specific season/week context in GetWeeklyNflGameSpreads,
@@ -878,3 +843,12 @@ func (r *queryResolver) getUserPickedGamesForCurrentWeek(ctx context.Context, us
 
 	return pickedGames, nil
 }
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
+// Query returns QueryResolver implementation.
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+
+type mutationResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }

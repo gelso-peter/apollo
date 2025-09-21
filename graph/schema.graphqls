@@ -108,6 +108,8 @@ type LeaderboardEntry {
   username: String!
   points: Int!
   isCurrentUser: Boolean!
+  winningPicks: Int!
+  winRate: Float!
 }
 
 type SeasonLeaderboard {

@@ -1,6 +1,10 @@
 package odds
 
-import "time"
+import (
+	"encoding/json"
+	"strconv"
+	"time"
+)
 
 type OddsGameResponse struct {
 	ID           string      `json:"id"`
@@ -25,6 +29,40 @@ type Game struct {
 type TeamScore struct {
 	Name  string `json:"name"`
 	Score int32  `json:"score"`
+}
+
+// UnmarshalJSON implements custom unmarshaling for TeamScore to handle string scores
+func (ts *TeamScore) UnmarshalJSON(data []byte) error {
+	type Alias TeamScore
+	aux := &struct {
+		Score interface{} `json:"score"`
+		*Alias
+	}{
+		Alias: (*Alias)(ts),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	switch v := aux.Score.(type) {
+	case string:
+		score, err := strconv.ParseInt(v, 10, 32)
+		if err != nil {
+			return err
+		}
+		ts.Score = int32(score)
+	case float64:
+		ts.Score = int32(v)
+	case int:
+		ts.Score = int32(v)
+	case int32:
+		ts.Score = v
+	default:
+		ts.Score = 0
+	}
+
+	return nil
 }
 
 type Bookmaker struct {

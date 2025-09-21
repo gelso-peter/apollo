@@ -89,6 +89,8 @@ type ComplexityRoot struct {
 		Points        func(childComplexity int) int
 		Rank          func(childComplexity int) int
 		Username      func(childComplexity int) int
+		WinRate       func(childComplexity int) int
+		WinningPicks  func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -409,6 +411,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.LeaderboardEntry.Username(childComplexity), true
+
+	case "LeaderboardEntry.winRate":
+		if e.complexity.LeaderboardEntry.WinRate == nil {
+			break
+		}
+
+		return e.complexity.LeaderboardEntry.WinRate(childComplexity), true
+
+	case "LeaderboardEntry.winningPicks":
+		if e.complexity.LeaderboardEntry.WinningPicks == nil {
+			break
+		}
+
+		return e.complexity.LeaderboardEntry.WinningPicks(childComplexity), true
 
 	case "Mutation.CreateGamePick":
 		if e.complexity.Mutation.CreateGamePick == nil {
@@ -2528,6 +2544,94 @@ func (ec *executionContext) fieldContext_LeaderboardEntry_isCurrentUser(_ contex
 	return fc, nil
 }
 
+func (ec *executionContext) _LeaderboardEntry_winningPicks(ctx context.Context, field graphql.CollectedField, obj *model.LeaderboardEntry) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LeaderboardEntry_winningPicks(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.WinningPicks, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LeaderboardEntry_winningPicks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LeaderboardEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _LeaderboardEntry_winRate(ctx context.Context, field graphql.CollectedField, obj *model.LeaderboardEntry) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_LeaderboardEntry_winRate(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.WinRate, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_LeaderboardEntry_winRate(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LeaderboardEntry",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_CreateGamePick(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Mutation_CreateGamePick(ctx, field)
 	if err != nil {
@@ -4065,6 +4169,10 @@ func (ec *executionContext) fieldContext_SeasonLeaderboard_entries(_ context.Con
 				return ec.fieldContext_LeaderboardEntry_points(ctx, field)
 			case "isCurrentUser":
 				return ec.fieldContext_LeaderboardEntry_isCurrentUser(ctx, field)
+			case "winningPicks":
+				return ec.fieldContext_LeaderboardEntry_winningPicks(ctx, field)
+			case "winRate":
+				return ec.fieldContext_LeaderboardEntry_winRate(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type LeaderboardEntry", field.Name)
 		},
@@ -7234,6 +7342,16 @@ func (ec *executionContext) _LeaderboardEntry(ctx context.Context, sel ast.Selec
 			}
 		case "isCurrentUser":
 			out.Values[i] = ec._LeaderboardEntry_isCurrentUser(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "winningPicks":
+			out.Values[i] = ec._LeaderboardEntry_winningPicks(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "winRate":
+			out.Values[i] = ec._LeaderboardEntry_winRate(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

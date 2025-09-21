@@ -47,10 +47,12 @@ type GamePick struct {
 }
 
 type LeaderboardEntry struct {
-	Rank          int32  `json:"rank"`
-	Username      string `json:"username"`
-	Points        int32  `json:"points"`
-	IsCurrentUser bool   `json:"isCurrentUser"`
+	Rank          int32   `json:"rank"`
+	Username      string  `json:"username"`
+	Points        int32   `json:"points"`
+	IsCurrentUser bool    `json:"isCurrentUser"`
+	WinningPicks  int32   `json:"winningPicks"`
+	WinRate       float64 `json:"winRate"`
 }
 
 type Mutation struct {

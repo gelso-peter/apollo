@@ -104,10 +104,10 @@ func (s *oddsServiceImpl) GetNFLGames(from, to string) ([]Game, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Filter for DraftKings only
+	// Filter for Espnbet only
 	for i := range allGames {
 		for _, bookmaker := range allGames[i].Bookmakers {
-			if bookmaker.Key == "draftkings" {
+			if bookmaker.Key == "espnbet" {
 				allGames[i].Bookmakers = []Bookmaker{bookmaker}
 				break
 			}
