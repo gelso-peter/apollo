@@ -71,17 +71,22 @@ type ComplexityRoot struct {
 	}
 
 	GamePick struct {
-		ID               func(childComplexity int) int
-		IsFinalized      func(childComplexity int) int
-		OddsGameID       func(childComplexity int) int
-		OpponentTeamName func(childComplexity int) int
-		PointsAssigned   func(childComplexity int) int
-		SeasonID         func(childComplexity int) int
-		SelectedTeamName func(childComplexity int) int
-		SpreadResult     func(childComplexity int) int
-		SpreadSelection  func(childComplexity int) int
-		UserID           func(childComplexity int) int
-		WeekID           func(childComplexity int) int
+		Covered             func(childComplexity int) int
+		FinalizedAt         func(childComplexity int) int
+		ID                  func(childComplexity int) int
+		IsFinalized         func(childComplexity int) int
+		MarginAgainstSpread func(childComplexity int) int
+		OddsGameID          func(childComplexity int) int
+		OpponentTeamName    func(childComplexity int) int
+		Outcome             func(childComplexity int) int
+		PointsAssigned      func(childComplexity int) int
+		PointsAwarded       func(childComplexity int) int
+		SeasonID            func(childComplexity int) int
+		SelectedTeamName    func(childComplexity int) int
+		SpreadLine          func(childComplexity int) int
+		SpreadResult        func(childComplexity int) int
+		UserID              func(childComplexity int) int
+		WeekID              func(childComplexity int) int
 	}
 
 	LeaderboardEntry struct {
@@ -307,6 +312,20 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.GameOdds.OddsGameID(childComplexity), true
 
+	case "GamePick.covered":
+		if e.complexity.GamePick.Covered == nil {
+			break
+		}
+
+		return e.complexity.GamePick.Covered(childComplexity), true
+
+	case "GamePick.finalized_at":
+		if e.complexity.GamePick.FinalizedAt == nil {
+			break
+		}
+
+		return e.complexity.GamePick.FinalizedAt(childComplexity), true
+
 	case "GamePick.id":
 		if e.complexity.GamePick.ID == nil {
 			break
@@ -320,6 +339,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.GamePick.IsFinalized(childComplexity), true
+
+	case "GamePick.margin_against_spread":
+		if e.complexity.GamePick.MarginAgainstSpread == nil {
+			break
+		}
+
+		return e.complexity.GamePick.MarginAgainstSpread(childComplexity), true
 
 	case "GamePick.oddsGameId":
 		if e.complexity.GamePick.OddsGameID == nil {
@@ -335,12 +361,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.GamePick.OpponentTeamName(childComplexity), true
 
+	case "GamePick.outcome":
+		if e.complexity.GamePick.Outcome == nil {
+			break
+		}
+
+		return e.complexity.GamePick.Outcome(childComplexity), true
+
 	case "GamePick.points_assigned":
 		if e.complexity.GamePick.PointsAssigned == nil {
 			break
 		}
 
 		return e.complexity.GamePick.PointsAssigned(childComplexity), true
+
+	case "GamePick.points_awarded":
+		if e.complexity.GamePick.PointsAwarded == nil {
+			break
+		}
+
+		return e.complexity.GamePick.PointsAwarded(childComplexity), true
 
 	case "GamePick.season_id":
 		if e.complexity.GamePick.SeasonID == nil {
@@ -356,19 +396,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.GamePick.SelectedTeamName(childComplexity), true
 
+	case "GamePick.spread_line":
+		if e.complexity.GamePick.SpreadLine == nil {
+			break
+		}
+
+		return e.complexity.GamePick.SpreadLine(childComplexity), true
+
 	case "GamePick.spread_result":
 		if e.complexity.GamePick.SpreadResult == nil {
 			break
 		}
 
 		return e.complexity.GamePick.SpreadResult(childComplexity), true
-
-	case "GamePick.spread_selection":
-		if e.complexity.GamePick.SpreadSelection == nil {
-			break
-		}
-
-		return e.complexity.GamePick.SpreadSelection(childComplexity), true
 
 	case "GamePick.user_id":
 		if e.complexity.GamePick.UserID == nil {
@@ -2148,8 +2188,8 @@ func (ec *executionContext) fieldContext_GamePick_opponent_team_name(_ context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _GamePick_spread_selection(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_GamePick_spread_selection(ctx, field)
+func (ec *executionContext) _GamePick_spread_line(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GamePick_spread_line(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -2162,7 +2202,7 @@ func (ec *executionContext) _GamePick_spread_selection(ctx context.Context, fiel
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.SpreadSelection, nil
+		return obj.SpreadLine, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2179,7 +2219,7 @@ func (ec *executionContext) _GamePick_spread_selection(ctx context.Context, fiel
 	return ec.marshalNInt2int32(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_GamePick_spread_selection(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_GamePick_spread_line(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "GamePick",
 		Field:      field,
@@ -2280,6 +2320,50 @@ func (ec *executionContext) fieldContext_GamePick_points_assigned(_ context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _GamePick_points_awarded(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GamePick_points_awarded(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PointsAwarded, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GamePick_points_awarded(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GamePick",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _GamePick_isFinalized(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_GamePick_isFinalized(ctx, field)
 	if err != nil {
@@ -2363,6 +2447,170 @@ func (ec *executionContext) fieldContext_GamePick_oddsGameId(_ context.Context, 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GamePick_outcome(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GamePick_outcome(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Outcome, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GamePick_outcome(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GamePick",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GamePick_margin_against_spread(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GamePick_margin_against_spread(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.MarginAgainstSpread, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*int32)
+	fc.Result = res
+	return ec.marshalOInt2ᚖint32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GamePick_margin_against_spread(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GamePick",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GamePick_covered(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GamePick_covered(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Covered, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*bool)
+	fc.Result = res
+	return ec.marshalOBoolean2ᚖbool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GamePick_covered(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GamePick",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _GamePick_finalized_at(ctx context.Context, field graphql.CollectedField, obj *model.GamePick) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_GamePick_finalized_at(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.FinalizedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_GamePick_finalized_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "GamePick",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2683,16 +2931,26 @@ func (ec *executionContext) fieldContext_Mutation_CreateGamePick(ctx context.Con
 				return ec.fieldContext_GamePick_selected_team_name(ctx, field)
 			case "opponent_team_name":
 				return ec.fieldContext_GamePick_opponent_team_name(ctx, field)
-			case "spread_selection":
-				return ec.fieldContext_GamePick_spread_selection(ctx, field)
+			case "spread_line":
+				return ec.fieldContext_GamePick_spread_line(ctx, field)
 			case "spread_result":
 				return ec.fieldContext_GamePick_spread_result(ctx, field)
 			case "points_assigned":
 				return ec.fieldContext_GamePick_points_assigned(ctx, field)
+			case "points_awarded":
+				return ec.fieldContext_GamePick_points_awarded(ctx, field)
 			case "isFinalized":
 				return ec.fieldContext_GamePick_isFinalized(ctx, field)
 			case "oddsGameId":
 				return ec.fieldContext_GamePick_oddsGameId(ctx, field)
+			case "outcome":
+				return ec.fieldContext_GamePick_outcome(ctx, field)
+			case "margin_against_spread":
+				return ec.fieldContext_GamePick_margin_against_spread(ctx, field)
+			case "covered":
+				return ec.fieldContext_GamePick_covered(ctx, field)
+			case "finalized_at":
+				return ec.fieldContext_GamePick_finalized_at(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type GamePick", field.Name)
 		},
@@ -2762,16 +3020,26 @@ func (ec *executionContext) fieldContext_Mutation_CreateGamePicks(ctx context.Co
 				return ec.fieldContext_GamePick_selected_team_name(ctx, field)
 			case "opponent_team_name":
 				return ec.fieldContext_GamePick_opponent_team_name(ctx, field)
-			case "spread_selection":
-				return ec.fieldContext_GamePick_spread_selection(ctx, field)
+			case "spread_line":
+				return ec.fieldContext_GamePick_spread_line(ctx, field)
 			case "spread_result":
 				return ec.fieldContext_GamePick_spread_result(ctx, field)
 			case "points_assigned":
 				return ec.fieldContext_GamePick_points_assigned(ctx, field)
+			case "points_awarded":
+				return ec.fieldContext_GamePick_points_awarded(ctx, field)
 			case "isFinalized":
 				return ec.fieldContext_GamePick_isFinalized(ctx, field)
 			case "oddsGameId":
 				return ec.fieldContext_GamePick_oddsGameId(ctx, field)
+			case "outcome":
+				return ec.fieldContext_GamePick_outcome(ctx, field)
+			case "margin_against_spread":
+				return ec.fieldContext_GamePick_margin_against_spread(ctx, field)
+			case "covered":
+				return ec.fieldContext_GamePick_covered(ctx, field)
+			case "finalized_at":
+				return ec.fieldContext_GamePick_finalized_at(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type GamePick", field.Name)
 		},
@@ -3432,16 +3700,26 @@ func (ec *executionContext) fieldContext_Query_GetPicksForUserBySeasonWeekId(ctx
 				return ec.fieldContext_GamePick_selected_team_name(ctx, field)
 			case "opponent_team_name":
 				return ec.fieldContext_GamePick_opponent_team_name(ctx, field)
-			case "spread_selection":
-				return ec.fieldContext_GamePick_spread_selection(ctx, field)
+			case "spread_line":
+				return ec.fieldContext_GamePick_spread_line(ctx, field)
 			case "spread_result":
 				return ec.fieldContext_GamePick_spread_result(ctx, field)
 			case "points_assigned":
 				return ec.fieldContext_GamePick_points_assigned(ctx, field)
+			case "points_awarded":
+				return ec.fieldContext_GamePick_points_awarded(ctx, field)
 			case "isFinalized":
 				return ec.fieldContext_GamePick_isFinalized(ctx, field)
 			case "oddsGameId":
 				return ec.fieldContext_GamePick_oddsGameId(ctx, field)
+			case "outcome":
+				return ec.fieldContext_GamePick_outcome(ctx, field)
+			case "margin_against_spread":
+				return ec.fieldContext_GamePick_margin_against_spread(ctx, field)
+			case "covered":
+				return ec.fieldContext_GamePick_covered(ctx, field)
+			case "finalized_at":
+				return ec.fieldContext_GamePick_finalized_at(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type GamePick", field.Name)
 		},
@@ -6928,7 +7206,7 @@ func (ec *executionContext) unmarshalInputNewGamePickInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"season_id", "week_id", "selected_team_name", "opponent_team_name", "spread_selection", "spread_result", "points_assigned", "odds_game_id"}
+	fieldsInOrder := [...]string{"season_id", "week_id", "selected_team_name", "opponent_team_name", "spread_line", "spread_result", "points_assigned", "odds_game_id"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -6963,13 +7241,13 @@ func (ec *executionContext) unmarshalInputNewGamePickInput(ctx context.Context, 
 				return it, err
 			}
 			it.OpponentTeamName = data
-		case "spread_selection":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spread_selection"))
+		case "spread_line":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spread_line"))
 			data, err := ec.unmarshalNInt2int32(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.SpreadSelection = data
+			it.SpreadLine = data
 		case "spread_result":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("spread_result"))
 			data, err := ec.unmarshalNInt2int32(ctx, v)
@@ -7266,8 +7544,8 @@ func (ec *executionContext) _GamePick(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "spread_selection":
-			out.Values[i] = ec._GamePick_spread_selection(ctx, field, obj)
+		case "spread_line":
+			out.Values[i] = ec._GamePick_spread_line(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -7281,6 +7559,11 @@ func (ec *executionContext) _GamePick(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "points_awarded":
+			out.Values[i] = ec._GamePick_points_awarded(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "isFinalized":
 			out.Values[i] = ec._GamePick_isFinalized(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -7291,6 +7574,14 @@ func (ec *executionContext) _GamePick(ctx context.Context, sel ast.SelectionSet,
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "outcome":
+			out.Values[i] = ec._GamePick_outcome(ctx, field, obj)
+		case "margin_against_spread":
+			out.Values[i] = ec._GamePick_margin_against_spread(ctx, field, obj)
+		case "covered":
+			out.Values[i] = ec._GamePick_covered(ctx, field, obj)
+		case "finalized_at":
+			out.Values[i] = ec._GamePick_finalized_at(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9349,6 +9640,24 @@ func (ec *executionContext) marshalOGameOdds2ᚖapolloᚋgraphᚋmodelᚐGameOdd
 		return graphql.Null
 	}
 	return ec._GameOdds(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOInt2ᚖint32(ctx context.Context, v any) (*int32, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalInt32(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.SelectionSet, v *int32) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalInt32(*v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOPickResult2ᚖapolloᚋgraphᚋmodelᚐPickResult(ctx context.Context, v any) (*model.PickResult, error) {

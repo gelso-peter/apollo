@@ -52,6 +52,14 @@ func main() {
 	gameFinalizer := cron.NewGameFinalizer(db.DB, oddsService)
 	cronStop := make(chan struct{})
 
+	// Run game finalizer immediately on server start
+	go func() {
+		log.Println("Running game finalizer immediately on server start")
+		if err := gameFinalizer.FinalizeGames(); err != nil {
+			log.Printf("Error during immediate game finalization: %v", err)
+		}
+	}()
+
 	// Run cron job on specific days at 6:00 AM
 	go gameFinalizer.RunPeriodically(cronStop)
 	log.Println("Game finalization cron job started (runs Fri/Sun/Mon/Tue at 6:00 AM)")

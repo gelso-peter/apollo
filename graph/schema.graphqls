@@ -44,11 +44,16 @@ type GamePick {
   user_id: ID!
   selected_team_name: String!
   opponent_team_name: String!
-  spread_selection: Int!
+  spread_line: Int!
   spread_result: Int!
   points_assigned: Int!
+  points_awarded: Int!
   isFinalized: Boolean!
   oddsGameId: ID!
+  outcome: String
+  margin_against_spread: Int
+  covered: Boolean
+  finalized_at: String
 }
 
 input NewGamePickInput {
@@ -56,7 +61,7 @@ input NewGamePickInput {
   week_id: ID!
   selected_team_name: String!
   opponent_team_name: String!
-  spread_selection: Int!
+  spread_line: Int!
   spread_result: Int!
   points_assigned: Int!
   odds_game_id: ID!

@@ -14,19 +14,24 @@ type GamePickRepository struct {
 }
 
 type GamePick struct {
-	ID                string
-	LeagueSeasonID    string
-	SportSeasonWeekID string
-	UserID            string
-	SelectedTeamName  string
-	OpponentTeamName  string
-	SpreadSelection   int32
-	SpreadResult      int32
-	PointsAssigned    int32
-	IsFinalized       bool
-	OddsGameID        *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                  string
+	LeagueSeasonID      string
+	SportSeasonWeekID   string
+	UserID              string
+	SelectedTeamName    string
+	OpponentTeamName    string
+	SpreadLine          int32
+	SpreadResult        int32
+	PointsAssigned      int32
+	PointsAwarded       int32
+	IsFinalized         bool
+	OddsGameID          *string
+	Outcome             *string
+	MarginAgainstSpread *int32
+	Covered             *bool
+	FinalizedAt         *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type UserSeasonPoints struct {
@@ -45,8 +50,9 @@ func NewGamePickRepository(db *pgxpool.Pool) *GamePickRepository {
 func (r *GamePickRepository) GetUnfinalizedPicks(ctx context.Context) ([]GamePick, error) {
 	query := `
 		SELECT id, league_season_id, sport_season_week_id, user_id,
-		       selected_team_name, opponent_team_name, spread_selection,
-		       spread_result, points_assigned, is_finalized, odds_game_id,
+		       selected_team_name, opponent_team_name, spread_line,
+		       spread_result, points_assigned, points_awarded, is_finalized, odds_game_id,
+		       outcome, margin_against_spread, covered, finalized_at,
 		       created_at, updated_at
 		FROM game_pick
 		WHERE is_finalized = false AND odds_game_id IS NOT NULL
@@ -69,11 +75,16 @@ func (r *GamePickRepository) GetUnfinalizedPicks(ctx context.Context) ([]GamePic
 			&pick.UserID,
 			&pick.SelectedTeamName,
 			&pick.OpponentTeamName,
-			&pick.SpreadSelection,
+			&pick.SpreadLine,
 			&pick.SpreadResult,
 			&pick.PointsAssigned,
+			&pick.PointsAwarded,
 			&pick.IsFinalized,
 			&pick.OddsGameID,
+			&pick.Outcome,
+			&pick.MarginAgainstSpread,
+			&pick.Covered,
+			&pick.FinalizedAt,
 			&pick.CreatedAt,
 			&pick.UpdatedAt,
 		)
@@ -90,7 +101,7 @@ func (r *GamePickRepository) GetUnfinalizedPicks(ctx context.Context) ([]GamePic
 	return picks, nil
 }
 
-// UpdateGamePickResult updates the spread result and finalizes the game pick
+// UpdateGamePickResult updates the spread result and finalizes the game pick (deprecated)
 func (r *GamePickRepository) UpdateGamePickResult(ctx context.Context, pickID string, spreadResult int32, pointsAssigned int32) error {
 	query := `
 		UPDATE game_pick
@@ -110,16 +121,43 @@ func (r *GamePickRepository) UpdateGamePickResult(ctx context.Context, pickID st
 	return nil
 }
 
+// UpdateGamePickResultDetailed updates the game pick with detailed finalization data
+// Note: points_assigned is NEVER changed - only points_awarded is updated
+func (r *GamePickRepository) UpdateGamePickResultDetailed(ctx context.Context, pickID string, outcome string, marginAgainstSpread int32, covered *bool, spreadResult int32, pointsAwarded int32) error {
+	query := `
+		UPDATE game_pick
+		SET outcome = $2,
+		    margin_against_spread = $3,
+		    covered = $4,
+		    spread_result = $5,
+		    points_awarded = $6,
+		    is_finalized = true,
+		    finalized_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+
+	result, err := r.db.Exec(ctx, query, pickID, outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded)
+	if err != nil {
+		return fmt.Errorf("failed to update game pick result: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("no game pick found with id %s", pickID)
+	}
+
+	return nil
+}
+
 // GetUserSeasonPoints calculates the total points for all users in a given season
 func (r *GamePickRepository) GetUserSeasonPoints(ctx context.Context, leagueSeasonID string) ([]UserSeasonPoints, error) {
 	query := `
 		SELECT u.id, u.first_name, u.last_name, u.email,
-		       COALESCE(SUM(gp.points_assigned), 0) as total_points
+		       COALESCE(SUM(gp.points_awarded), 0) as total_points
 		FROM app_user u
 		LEFT JOIN game_pick gp ON u.id = gp.user_id
 		    AND gp.league_season_id = $1
 		    AND gp.is_finalized = true
-		    AND gp.spread_result > 0  -- Only count winning picks
 		GROUP BY u.id, u.first_name, u.last_name, u.email
 		ORDER BY total_points DESC
 	`
@@ -157,8 +195,9 @@ func (r *GamePickRepository) GetUserSeasonPoints(ctx context.Context, leagueSeas
 func (r *GamePickRepository) GetPickByOddsGameID(ctx context.Context, oddsGameID string, userID string) (*GamePick, error) {
 	query := `
 		SELECT id, league_season_id, sport_season_week_id, user_id,
-		       selected_team_name, opponent_team_name, spread_selection,
-		       spread_result, points_assigned, is_finalized, odds_game_id,
+		       selected_team_name, opponent_team_name, spread_line,
+		       spread_result, points_assigned, points_awarded, is_finalized, odds_game_id,
+		       outcome, margin_against_spread, covered, finalized_at,
 		       created_at, updated_at
 		FROM game_pick
 		WHERE odds_game_id = $1 AND user_id = $2
@@ -172,11 +211,16 @@ func (r *GamePickRepository) GetPickByOddsGameID(ctx context.Context, oddsGameID
 		&pick.UserID,
 		&pick.SelectedTeamName,
 		&pick.OpponentTeamName,
-		&pick.SpreadSelection,
+		&pick.SpreadLine,
 		&pick.SpreadResult,
 		&pick.PointsAssigned,
+		&pick.PointsAwarded,
 		&pick.IsFinalized,
 		&pick.OddsGameID,
+		&pick.Outcome,
+		&pick.MarginAgainstSpread,
+		&pick.Covered,
+		&pick.FinalizedAt,
 		&pick.CreatedAt,
 		&pick.UpdatedAt,
 	)

@@ -70,21 +70,22 @@ func (gf *GameFinalizer) FinalizeGames() error {
 			continue // Game not completed yet
 		}
 
-		// Calculate the spread result
-		spreadResult, pointsAwarded, err := gf.calculateSpreadResult(pick, completedGame)
+		// Calculate the detailed spread result
+		outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded, err := gf.calculateDetailedSpreadResult(pick, completedGame)
 		if err != nil {
 			log.Printf("Error calculating spread result for pick %s: %v", pick.ID, err)
 			continue
 		}
 
-		// Update the pick in the database
-		err = gf.gamePickRepo.UpdateGamePickResult(gf.ctx, pick.ID, spreadResult, pointsAwarded)
+		// Update the pick in the database with detailed results
+		err = gf.gamePickRepo.UpdateGamePickResultDetailed(gf.ctx, pick.ID, outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded)
 		if err != nil {
 			log.Printf("Error updating pick %s: %v", pick.ID, err)
 			continue
 		}
 
-		log.Printf("Finalized pick %s: spread_result=%d, points=%d", pick.ID, spreadResult, pointsAwarded)
+		log.Printf("Finalized pick %s: outcome=%s, margin=%d, covered=%v, spread_result=%d, points=%d",
+			pick.ID, outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded)
 		processedCount++
 	}
 
@@ -92,10 +93,10 @@ func (gf *GameFinalizer) FinalizeGames() error {
 	return nil
 }
 
-// calculateSpreadResult determines if the user's pick beat the spread and calculates points
-func (gf *GameFinalizer) calculateSpreadResult(pick db.GamePick, completedGame odds.Game) (int32, int32, error) {
+// calculateDetailedSpreadResult determines the detailed outcome of a spread bet
+func (gf *GameFinalizer) calculateDetailedSpreadResult(pick db.GamePick, completedGame odds.Game) (string, int32, *bool, int32, int32, error) {
 	if len(completedGame.Scores) < 2 {
-		return 0, 0, fmt.Errorf("incomplete score data for game %s", completedGame.ID)
+		return "", 0, nil, 0, 0, fmt.Errorf("incomplete score data for game %s", completedGame.ID)
 	}
 
 	// Find the scores for the selected team and opponent
@@ -113,35 +114,53 @@ func (gf *GameFinalizer) calculateSpreadResult(pick db.GamePick, completedGame o
 	}
 
 	if !selectedTeamFound || !opponentTeamFound {
-		return 0, 0, fmt.Errorf("could not find scores for teams %s vs %s", pick.SelectedTeamName, pick.OpponentTeamName)
+		return "", 0, nil, 0, 0, fmt.Errorf("could not find scores for teams %s vs %s", pick.SelectedTeamName, pick.OpponentTeamName)
 	}
 
-	// Calculate the actual point differential
+	// Calculate the actual point differential (selected team score - opponent team score)
 	actualDifferential := selectedTeamScore - opponentTeamScore
 
-	// Check if the pick beat the spread
-	// If user picked -3 (favored by 3), they need to win by more than 3
-	// If user picked +3 (underdog by 3), they need to lose by less than 3 or win
-	beatSpread := false
+	// Convert spread_line to proper decimal (assuming it's stored as integer * 10, e.g., 25 = +2.5)
+	spreadValue := float64(pick.SpreadLine) / 10.0
 
-	if pick.SpreadSelection < 0 {
-		// User picked the favorite
-		beatSpread = actualDifferential > -pick.SpreadSelection
-	} else {
-		// User picked the underdog
-		beatSpread = actualDifferential > -pick.SpreadSelection
-	}
+	// Calculate margin against spread: how much better/worse the team did vs the spread
+	// Positive margin = covered the spread, Negative = didn't cover
+	marginAgainstSpread := float64(actualDifferential) - spreadValue
+	marginAgainstSpreadInt := int32(marginAgainstSpread * 10) // Store as int with 1 decimal precision
 
-	// Calculate points and spread result
-	var spreadResult int32 = 0 // 0 for loss
+	log.Printf("Pick %s: %s (%d) vs %s (%d), spread_line: %d (%.1f), actual_diff: %d, margin: %.1f (%d)",
+		pick.ID, pick.SelectedTeamName, selectedTeamScore, pick.OpponentTeamName, opponentTeamScore,
+		pick.SpreadLine, spreadValue, actualDifferential, marginAgainstSpread, marginAgainstSpreadInt)
+
+	// Determine outcome and coverage based on margin against spread
+	var outcome string
+	var covered *bool
+	var spreadResult int32 = 0 // 0 for loss/push
 	var pointsAwarded int32 = 0
 
-	if beatSpread {
-		spreadResult = 1                    // 1 for win
-		pointsAwarded = pick.PointsAssigned // Award the points they assigned
+	if marginAgainstSpread > 0 {
+		// Win: covered the spread - award the full points the user assigned
+		outcome = "win"
+		trueBool := true
+		covered = &trueBool
+		spreadResult = 1
+		pointsAwarded = pick.PointsAssigned // Award the points user originally assigned
+	} else if marginAgainstSpread < 0 {
+		// Loss: didn't cover the spread - award no points
+		outcome = "loss"
+		falseBool := false
+		covered = &falseBool
+		spreadResult = 0
+		pointsAwarded = 0 // No points awarded for losses
+	} else {
+		// Push: exactly hit the spread (rare with .5 spreads) - award no points
+		outcome = "push"
+		covered = nil // NULL for pushes
+		spreadResult = 0
+		pointsAwarded = 0 // No points awarded for pushes
 	}
 
-	return spreadResult, pointsAwarded, nil
+	return outcome, marginAgainstSpreadInt, covered, spreadResult, pointsAwarded, nil
 }
 
 // RunPeriodically runs the game finalization process on specific days at 6:00 AM

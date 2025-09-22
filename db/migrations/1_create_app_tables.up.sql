@@ -20,7 +20,6 @@ CREATE TABLE user_league_association (
     league_id UUID NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-
     PRIMARY KEY (league_id, user_id),
     FOREIGN KEY (league_id) REFERENCES league(id),
     FOREIGN KEY (user_id) REFERENCES app_user(id)
@@ -28,7 +27,6 @@ CREATE TABLE user_league_association (
 
 CREATE TYPE Sport AS ENUM ('football');
 
--- Shared, immutable canonical seasons (e.g., NFL 2025)
 CREATE TABLE sport_season (
     id UUID PRIMARY KEY,
     sport Sport NOT NULL,
@@ -38,7 +36,6 @@ CREATE TABLE sport_season (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Shared 17-week structure for each sport_season
 CREATE TABLE sport_season_week (
     id UUID PRIMARY KEY,
     sport_season_id UUID NOT NULL REFERENCES sport_season(id) ON DELETE CASCADE,
@@ -49,7 +46,6 @@ CREATE TABLE sport_season_week (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- League-specific seasons (e.g., “League A NFL 2025 Season”)
 CREATE TABLE league_season (
     id UUID PRIMARY KEY,
     league_id UUID NOT NULL REFERENCES league(id) ON DELETE CASCADE,
@@ -65,10 +61,20 @@ CREATE TABLE game_pick (
     user_id UUID NOT NULL REFERENCES app_user(id),
     selected_team_name TEXT NOT NULL,
     opponent_team_name TEXT NOT NULL,
-    spread_selection INTEGER NOT NULL,  -- e.g. -3 for favored team
-    spread_result INTEGER NOT NULL,     -- e.g. +7 if team beat the spread
+    spread_line INTEGER NOT NULL,  -- renamed from spread_selection
+    spread_result INTEGER NOT NULL,
     points_assigned INTEGER NOT NULL,
+    points_awarded INTEGER DEFAULT 0,
+    odds_game_id TEXT NOT NULL,
     is_finalized BOOLEAN NOT NULL DEFAULT FALSE,
+    outcome TEXT CHECK (outcome IN ('win','loss','push')),
+    margin_against_spread INTEGER,
+    covered BOOLEAN,
+    finalized_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT unique_user_odds_game_week UNIQUE (user_id, odds_game_id, sport_season_week_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_game_pick_finalized ON game_pick (is_finalized);
+CREATE INDEX IF NOT EXISTS idx_game_pick_odds_game_id ON game_pick (odds_game_id);
