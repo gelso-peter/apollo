@@ -93,6 +93,68 @@ func (gf *GameFinalizer) FinalizeGames() error {
 	return nil
 }
 
+// FinalizeSingleGamePick processes and finalizes a single game pick by ID
+func (gf *GameFinalizer) FinalizeSingleGamePick(pickID string) error {
+	log.Printf("Starting finalization for single game pick: %s", pickID)
+
+	// Get the specific pick by ID
+	pick, err := gf.gamePickRepo.GetGamePickByID(gf.ctx, pickID)
+	if err != nil {
+		return fmt.Errorf("failed to get game pick: %w", err)
+	}
+
+	// Validate pick eligibility for finalization
+	if pick.IsFinalized {
+		return fmt.Errorf("game pick %s is already finalized", pickID)
+	}
+
+	if pick.OddsGameID == nil {
+		return fmt.Errorf("game pick %s has no odds_game_id set", pickID)
+	}
+
+	log.Printf("Found unfinalized pick: %s for game %s", pickID, *pick.OddsGameID)
+
+	// Get completed games from odds API for the specific game
+	from := time.Now().UTC().AddDate(0, 0, -14).Format(time.RFC3339) // Look back 14 days to be safe
+	to := time.Now().UTC().Format(time.RFC3339)
+	completedGames, err := gf.oddsService.GetCompletedGames(from, to)
+	if err != nil {
+		return fmt.Errorf("failed to get completed games from odds API: %w", err)
+	}
+
+	// Find the specific completed game
+	var completedGame *odds.Game
+	for _, game := range completedGames {
+		if game.ID == *pick.OddsGameID {
+			completedGame = &game
+			break
+		}
+	}
+
+	if completedGame == nil {
+		return fmt.Errorf("game %s is not yet completed or not found in odds API", *pick.OddsGameID)
+	}
+
+	log.Printf("Found completed game %s", completedGame.ID)
+
+	// Calculate the detailed spread result
+	outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded, err := gf.calculateDetailedSpreadResult(*pick, *completedGame)
+	if err != nil {
+		return fmt.Errorf("failed to calculate spread result: %w", err)
+	}
+
+	// Update the pick in the database with detailed results
+	err = gf.gamePickRepo.UpdateGamePickResultDetailed(gf.ctx, pick.ID, outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded)
+	if err != nil {
+		return fmt.Errorf("failed to update game pick result: %w", err)
+	}
+
+	log.Printf("Successfully finalized pick %s: outcome=%s, margin=%d, covered=%v, spread_result=%d, points=%d",
+		pickID, outcome, marginAgainstSpread, covered, spreadResult, pointsAwarded)
+
+	return nil
+}
+
 // calculateDetailedSpreadResult determines the detailed outcome of a spread bet
 func (gf *GameFinalizer) calculateDetailedSpreadResult(pick db.GamePick, completedGame odds.Game) (string, int32, *bool, int32, int32, error) {
 	if len(completedGame.Scores) < 2 {
@@ -125,7 +187,7 @@ func (gf *GameFinalizer) calculateDetailedSpreadResult(pick db.GamePick, complet
 
 	// Calculate margin against spread: how much better/worse the team did vs the spread
 	// Positive margin = covered the spread, Negative = didn't cover
-	marginAgainstSpread := float64(actualDifferential) - spreadValue
+	marginAgainstSpread := float64(actualDifferential) + spreadValue
 	marginAgainstSpreadInt := int32(marginAgainstSpread * 10) // Store as int with 1 decimal precision
 
 	log.Printf("Pick %s: %s (%d) vs %s (%d), spread_line: %d (%.1f), actual_diff: %d, margin: %.1f (%d)",

@@ -234,3 +234,47 @@ func (r *GamePickRepository) GetPickByOddsGameID(ctx context.Context, oddsGameID
 
 	return &pick, nil
 }
+
+// GetGamePickByID retrieves a specific game pick by its ID
+func (r *GamePickRepository) GetGamePickByID(ctx context.Context, pickID string) (*GamePick, error) {
+	query := `
+		SELECT id, league_season_id, sport_season_week_id, user_id,
+		       selected_team_name, opponent_team_name, spread_line,
+		       spread_result, points_assigned, points_awarded, is_finalized, odds_game_id,
+		       outcome, margin_against_spread, covered, finalized_at,
+		       created_at, updated_at
+		FROM game_pick
+		WHERE id = $1
+	`
+
+	var pick GamePick
+	err := r.db.QueryRow(ctx, query, pickID).Scan(
+		&pick.ID,
+		&pick.LeagueSeasonID,
+		&pick.SportSeasonWeekID,
+		&pick.UserID,
+		&pick.SelectedTeamName,
+		&pick.OpponentTeamName,
+		&pick.SpreadLine,
+		&pick.SpreadResult,
+		&pick.PointsAssigned,
+		&pick.PointsAwarded,
+		&pick.IsFinalized,
+		&pick.OddsGameID,
+		&pick.Outcome,
+		&pick.MarginAgainstSpread,
+		&pick.Covered,
+		&pick.FinalizedAt,
+		&pick.CreatedAt,
+		&pick.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, fmt.Errorf("no game pick found with id %s", pickID)
+		}
+		return nil, fmt.Errorf("failed to get game pick by ID: %w", err)
+	}
+
+	return &pick, nil
+}
