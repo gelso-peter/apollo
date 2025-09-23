@@ -217,7 +217,8 @@ func (gf *GameFinalizer) calculateDetailedSpreadResult(pick db.GamePick, complet
 	} else {
 		// Push: exactly hit the spread (rare with .5 spreads) - award no points
 		outcome = "push"
-		covered = nil // NULL for pushes
+		falseBool := false
+		covered = &falseBool // Push means spread was not covered
 		spreadResult = 0
 		pointsAwarded = 0 // No points awarded for pushes
 	}

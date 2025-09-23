@@ -136,7 +136,7 @@ func (s *oddsServiceImpl) GetGameByID(gameID string) (*Game, error) {
 
 func (s *oddsServiceImpl) GetCompletedGames(from, to string) ([]Game, error) {
 	url := fmt.Sprintf(
-		"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/scores?daysFrom=1&apiKey=%s",
+		"https://api.the-odds-api.com/v4/sports/americanfootball_nfl/scores?daysFrom=3&apiKey=%s",
 		s.apiKey,
 	)
 
