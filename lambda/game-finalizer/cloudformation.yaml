@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Apollo Game Finalizer Lambda Function and EventBridge Schedule'
+
+Parameters:
+  DatabaseURL:
+    Type: String
+    Description: PostgreSQL database connection string
+    NoEcho: true
+
+  SecretName:
+    Type: String
+    Default: apollo/api-keys
+    Description: AWS Secrets Manager secret name containing API keys
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where the Lambda will run
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for the Lambda function (should be private subnets)
+
+Resources:
+  # IAM Role for Lambda Function
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: apollo-game-finalizer-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretName}*'
+
+  # Security Group for Lambda
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: apollo-lambda-sg
+      GroupDescription: Security group for Apollo Lambda function
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS outbound for AWS services
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+          Description: PostgreSQL database access
+
+  # Lambda Function
+  GameFinalizerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: apollo-game-finalizer
+      Runtime: provided.al2023
+      Handler: bootstrap
+      Code:
+        ZipFile: |
+          # Placeholder - replace with actual deployment package
+          exports.handler = async (event) => {
+              return { statusCode: 200, body: 'Hello from Lambda!' };
+          };
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 900  # 15 minutes
+      MemorySize: 256
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseURL
+          AWS_SECRET_NAME: !Ref SecretName
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+        SubnetIds: !Ref SubnetIds
+
+  # EventBridge Rule for scheduling
+  GameFinalizerScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: apollo-game-finalizer-schedule
+      Description: Runs Apollo game finalizer on Fri/Sun/Mon/Tue at 6:00 AM UTC
+      # Schedule expression for 6:00 AM UTC on Friday, Sunday, Monday, Tuesday
+      # Note: EventBridge uses UTC time
+      ScheduleExpression: 'cron(0 6 ? * FRI,SUN,MON,TUE *)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt GameFinalizerFunction.Arn
+          Id: GameFinalizerTarget
+
+  # Permission for EventBridge to invoke Lambda
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref GameFinalizerFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt GameFinalizerScheduleRule.Arn
+
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function
+    Value: !GetAtt GameFinalizerFunction.Arn
+
+  ScheduleRuleArn:
+    Description: ARN of the EventBridge schedule rule
+    Value: !GetAtt GameFinalizerScheduleRule.Arn

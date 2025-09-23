@@ -4,11 +4,12 @@ import (
 	"apollo/db"
 	"apollo/db/migrations"
 	"apollo/graph"
+	"apollo/internal/aws"
 	"apollo/middleware"
 	"apollo/router"
-	"apollo/services/cron"
 	"apollo/services/odds.go"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -26,14 +27,43 @@ import (
 const defaultPort = "8080"
 
 func main() {
+	// Check if running in health check mode
+	if len(os.Args) > 1 && os.Args[1] == "--health-check" {
+		healthCheck()
+		return
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
 
-	oddsApiKey := os.Getenv("ODDS_API_KEY")
-	if oddsApiKey == "" {
-		log.Fatal("Missing ODDS_API_KEY")
+	// Initialize AWS Secrets Manager client
+	secretsClient, err := aws.NewSecretsClient()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize AWS Secrets Manager client: %v", err)
+		log.Println("Falling back to environment variables for local development")
+	}
+
+	// Get ODDS_API_KEY from AWS Secrets Manager or environment variable
+	var oddsApiKey string
+	if secretsClient != nil {
+		secretName := os.Getenv("AWS_SECRET_NAME")
+		if secretName == "" {
+			secretName = "apollo/api-keys" // Default secret name
+		}
+
+		oddsApiKey, err = secretsClient.GetOddsAPIKey(secretName)
+		if err != nil {
+			log.Printf("Failed to get ODDS_API_KEY from secrets manager: %v", err)
+			log.Fatal("Missing ODDS_API_KEY and unable to retrieve from AWS Secrets Manager")
+		}
+	} else {
+		// Fallback to environment variable
+		oddsApiKey = os.Getenv("ODDS_API_KEY")
+		if oddsApiKey == "" {
+			log.Fatal("Missing ODDS_API_KEY and AWS Secrets Manager is not available")
+		}
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -48,21 +78,8 @@ func main() {
 	odds.InitOddsService(oddsApiKey)
 	oddsService := odds.GetOddsService()
 
-	// Setup cron job for game finalization
-	gameFinalizer := cron.NewGameFinalizer(db.DB, oddsService)
-	cronStop := make(chan struct{})
-
-	// Run game finalizer immediately on server start
-	go func() {
-		log.Println("Running game finalizer immediately on server start")
-		if err := gameFinalizer.FinalizeGames(); err != nil {
-			log.Printf("Error during immediate game finalization: %v", err)
-		}
-	}()
-
-	// Run cron job on specific days at 6:00 AM
-	go gameFinalizer.RunPeriodically(cronStop)
-	log.Println("Game finalization cron job started (runs Fri/Sun/Mon/Tue at 6:00 AM)")
+	// Note: Game finalization is now handled by AWS Lambda function
+	log.Println("Game finalization is handled by AWS Lambda (runs Fri/Sun/Mon/Tue at 6:00 AM)")
 
 	// Setup GraphQL server
 	graphResolvers := &graph.Resolver{
@@ -82,6 +99,12 @@ func main() {
 
 	// Setup REST and GraphQL together in one mux
 	mainMux := http.NewServeMux()
+
+	// Health check endpoint
+	mainMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	// GraphQL routes
 	mainMux.Handle("/query", protectedGraphQL)
@@ -114,10 +137,10 @@ func main() {
 	}()
 
 	// Wait for interrupt signal and gracefully shutdown the server
-	gracefulShutdown(srv, cronStop)
+	gracefulShutdown(srv)
 }
 
-func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
+func gracefulShutdown(srv *http.Server) {
 	// Channel to listen for termination signals
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -126,10 +149,6 @@ func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
 	<-stop
 
 	log.Println("Shutting down server...")
-
-	// Stop the cron job first
-	close(cronStop)
-	log.Println("Cron job stopped")
 
 	// Context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -140,4 +159,27 @@ func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
 	}
 
 	log.Println("Server exited properly")
+}
+
+// healthCheck performs a simple health check for Docker HEALTHCHECK
+func healthCheck() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = defaultPort
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/health", port))
+	if err != nil {
+		log.Printf("Health check failed: %v", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Health check failed with status: %d", resp.StatusCode)
+		os.Exit(1)
+	}
+
+	log.Println("Health check passed")
+	os.Exit(0)
 }

@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS App Runner service for Apollo application'
+
+Parameters:
+  DatabaseURL:
+    Type: String
+    Description: PostgreSQL database connection string
+    NoEcho: true
+
+  JWTSecret:
+    Type: String
+    Description: JWT secret for authentication
+    NoEcho: true
+
+  SecretName:
+    Type: String
+    Default: apollo/api-keys
+    Description: AWS Secrets Manager secret name containing API keys
+
+  ImageUri:
+    Type: String
+    Description: ECR image URI for the Apollo application
+    Default: "public.ecr.aws/lambda/provided:al2023-x86_64"
+
+  AppRunnerServiceName:
+    Type: String
+    Default: apollo-app
+    Description: Name of the App Runner service
+
+Resources:
+  # IAM Role for App Runner Instance
+  AppRunnerInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppRunnerServiceName}-instance-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - tasks.apprunner.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretName}*'
+
+  # IAM Role for App Runner Access (for ECR if using private registry)
+  AppRunnerAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppRunnerServiceName}-access-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - build.apprunner.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
+
+  # App Runner Service
+  AppRunnerService:
+    Type: AWS::AppRunner::Service
+    Properties:
+      ServiceName: !Ref AppRunnerServiceName
+      SourceConfiguration:
+        AutoDeploymentsEnabled: false
+        ImageRepository:
+          ImageIdentifier: !Ref ImageUri
+          ImageConfiguration:
+            Port: '8080'
+            RuntimeEnvironmentVariables:
+              - Name: PORT
+                Value: '8080'
+              - Name: DATABASE_URL
+                Value: !Ref DatabaseURL
+              - Name: AWS_SECRET_NAME
+                Value: !Ref SecretName
+              - Name: JWT_SECRET
+                Value: !Ref JWTSecret
+          ImageRepositoryType: ECR_PUBLIC  # Change to ECR if using private registry
+        AccessRoleArn: !GetAtt AppRunnerAccessRole.Arn
+      InstanceConfiguration:
+        Cpu: 0.25 vCPU
+        Memory: 0.5 GB
+        InstanceRoleArn: !GetAtt AppRunnerInstanceRole.Arn
+      HealthCheckConfiguration:
+        Protocol: HTTP
+        Path: /
+        Interval: 10
+        Timeout: 5
+        HealthyThreshold: 1
+        UnhealthyThreshold: 5
+      Tags:
+        - Key: Name
+          Value: !Ref AppRunnerServiceName
+        - Key: Environment
+          Value: production
+
+Outputs:
+  AppRunnerServiceUrl:
+    Description: The URL of the App Runner service
+    Value: !Sub 'https://${AppRunnerService.ServiceUrl}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ServiceUrl'
+
+  AppRunnerServiceArn:
+    Description: The ARN of the App Runner service
+    Value: !GetAtt AppRunnerService.ServiceArn
+    Export:
+      Name: !Sub '${AWS::StackName}-ServiceArn'
