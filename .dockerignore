@@ -34,7 +34,6 @@ logs/
 # Build artifacts and binaries
 /bin/
 main
-server
 *.exe
 *.out
 

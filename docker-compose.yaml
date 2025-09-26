@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    volumes:
-      - /Users/petergelsomino/apollo/db/migrations:/app/migrations
     ports:
       - "8080:8080"
     depends_on:
