@@ -4,7 +4,6 @@ import (
 	"apollo/db"
 	"apollo/db/migrations"
 	"apollo/graph"
-	"apollo/internal/aws"
 	"apollo/middleware"
 	"apollo/router"
 	"apollo/services/odds.go"
@@ -38,45 +37,20 @@ func main() {
 		port = defaultPort
 	}
 
-	// Initialize AWS Secrets Manager client
-	secretsClient, err := aws.NewSecretsClient()
-	if err != nil {
-		log.Printf("Warning: Failed to initialize AWS Secrets Manager client: %v", err)
-		log.Println("Falling back to environment variables for local development")
+	// Get ODDS_API_KEY from environment variable
+	// In App Runner: automatically populated from Secrets Manager
+	// In local dev: loaded from .env file
+	oddsApiKey := os.Getenv("ODDS_API_KEY")
+	if oddsApiKey == "" {
+		log.Fatal("Missing ODDS_API_KEY environment variable")
 	}
 
-	// Get ODDS_API_KEY from AWS Secrets Manager or environment variable
-	var oddsApiKey string
-	if secretsClient != nil {
-		oddsApiKey, err = secretsClient.GetIndividualSecret("apollo/api-keys")
-		if err != nil {
-			log.Printf("Failed to get ODDS_API_KEY from secrets manager: %v", err)
-			log.Fatal("Missing ODDS_API_KEY and unable to retrieve from AWS Secrets Manager")
-		}
-	} else {
-		// Fallback to environment variable
-		oddsApiKey = os.Getenv("ODDS_API_KEY")
-		if oddsApiKey == "" {
-			log.Fatal("Missing ODDS_API_KEY and AWS Secrets Manager is not available")
-		}
-	}
-
-	// Get DATABASE_URL from AWS Secrets Manager or environment variable
-	var dbURL string
-	if secretsClient != nil {
-		dbURL, err = secretsClient.GetIndividualSecret("apollo/db-url")
-		if err != nil {
-			log.Printf("Failed to get DATABASE_URL from secrets manager: %v", err)
-			log.Println("Falling back to DATABASE_URL environment variable")
-			dbURL = os.Getenv("DATABASE_URL")
-		}
-	} else {
-		// Fallback to environment variable
-		dbURL = os.Getenv("DATABASE_URL")
-	}
-
+	// Get DATABASE_URL from environment variable
+	// In App Runner: automatically populated from Secrets Manager
+	// In local dev: loaded from .env file
+	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		log.Fatal("Missing DATABASE_URL and unable to retrieve from AWS Secrets Manager")
+		log.Fatal("Missing DATABASE_URL environment variable")
 	}
 
 	db.ConnectDB()
