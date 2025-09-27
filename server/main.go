@@ -48,12 +48,7 @@ func main() {
 	// Get ODDS_API_KEY from AWS Secrets Manager or environment variable
 	var oddsApiKey string
 	if secretsClient != nil {
-		secretName := os.Getenv("AWS_SECRET_NAME")
-		if secretName == "" {
-			secretName = "apollo/api-keys" // Default secret name
-		}
-
-		oddsApiKey, err = secretsClient.GetOddsAPIKey(secretName)
+		oddsApiKey, err = secretsClient.GetIndividualSecret("apollo/api-keys")
 		if err != nil {
 			log.Printf("Failed to get ODDS_API_KEY from secrets manager: %v", err)
 			log.Fatal("Missing ODDS_API_KEY and unable to retrieve from AWS Secrets Manager")
@@ -66,14 +61,27 @@ func main() {
 		}
 	}
 
-	dbURL := os.Getenv("DATABASE_URL")
+	// Get DATABASE_URL from AWS Secrets Manager or environment variable
+	var dbURL string
+	if secretsClient != nil {
+		dbURL, err = secretsClient.GetIndividualSecret("apollo/db-url")
+		if err != nil {
+			log.Printf("Failed to get DATABASE_URL from secrets manager: %v", err)
+			log.Println("Falling back to DATABASE_URL environment variable")
+			dbURL = os.Getenv("DATABASE_URL")
+		}
+	} else {
+		// Fallback to environment variable
+		dbURL = os.Getenv("DATABASE_URL")
+	}
+
 	if dbURL == "" {
-		log.Fatal("Missing DATABASE_URL")
+		log.Fatal("Missing DATABASE_URL and unable to retrieve from AWS Secrets Manager")
 	}
 
 	db.ConnectDB()
 	defer db.CloseDB()
-	migrations.RunMigrations()
+	migrations.RunMigrations(dbURL)
 
 	odds.InitOddsService(oddsApiKey)
 	oddsService := odds.GetOddsService()

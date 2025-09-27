@@ -2,7 +2,6 @@ package aws
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -21,7 +20,28 @@ type AppSecrets struct {
 }
 
 // NewSecretsClient creates a new AWS Secrets Manager client
+// Returns nil during local development to force fallback to environment variables
 func NewSecretsClient() (*SecretsClient, error) {
+	// Check if we're running in an AWS execution environment
+	awsExecutionEnv := os.Getenv("AWS_EXECUTION_ENV")
+	useAwsSecrets := os.Getenv("USE_AWS_SECRETS")
+	awsRegion := os.Getenv("AWS_REGION")
+
+	// Only create AWS client if we're in AWS execution environment or explicitly enabled
+	if awsExecutionEnv == "" && useAwsSecrets != "true" {
+		// For local development, return nil to force fallback to env vars
+		log.Println("Local development detected - AWS Secrets Manager disabled, using environment variables")
+		return nil, fmt.Errorf("local development mode: AWS Secrets Manager disabled")
+	}
+
+	// Additional check: if no AWS region is set and not explicitly enabled, assume local
+	if awsRegion == "" && useAwsSecrets != "true" {
+		log.Println("No AWS region detected - AWS Secrets Manager disabled, using environment variables")
+		return nil, fmt.Errorf("no AWS region detected: AWS Secrets Manager disabled")
+	}
+
+	log.Printf("AWS execution environment detected (%s) - initializing AWS Secrets Manager", awsExecutionEnv)
+
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("unable to load AWS config: %w", err)
@@ -32,19 +52,10 @@ func NewSecretsClient() (*SecretsClient, error) {
 	}, nil
 }
 
-// GetAppSecrets retrieves application secrets from AWS Secrets Manager
-// Falls back to environment variables if running locally or if secret is not found
-func (s *SecretsClient) GetAppSecrets(secretName string) (*AppSecrets, error) {
-	// First try to get from environment variables (for local development)
-	if oddsKey := os.Getenv("ODDS_API_KEY"); oddsKey != "" {
-		log.Println("Using ODDS_API_KEY from environment variable (local development)")
-		return &AppSecrets{
-			OddsAPIKey: oddsKey,
-		}, nil
-	}
-
-	// Try to get from AWS Secrets Manager
-	log.Printf("Attempting to retrieve secrets from AWS Secrets Manager: %s", secretName)
+// GetIndividualSecret retrieves a single secret value by ARN or name
+// This is used when secrets are stored individually rather than in a JSON object
+func (s *SecretsClient) GetIndividualSecret(secretName string) (string, error) {
+	log.Printf("Attempting to retrieve individual secret from AWS Secrets Manager: %s", secretName)
 
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId: &secretName,
@@ -52,34 +63,13 @@ func (s *SecretsClient) GetAppSecrets(secretName string) (*AppSecrets, error) {
 
 	result, err := s.client.GetSecretValue(context.Background(), input)
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve secret %s: %w", secretName, err)
+		return "", fmt.Errorf("failed to retrieve secret %s: %w", secretName, err)
 	}
 
-	var secrets AppSecrets
-	if err := json.Unmarshal([]byte(*result.SecretString), &secrets); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal secret: %w", err)
+	if result.SecretString == nil {
+		return "", fmt.Errorf("secret %s has no string value", secretName)
 	}
 
-	log.Println("Successfully retrieved secrets from AWS Secrets Manager")
-	return &secrets, nil
-}
-
-// GetOddsAPIKey is a convenience method to get just the Odds API key
-func (s *SecretsClient) GetOddsAPIKey(secretName string) (string, error) {
-	secrets, err := s.GetAppSecrets(secretName)
-	if err != nil {
-		return "", err
-	}
-	return secrets.OddsAPIKey, nil
-}
-
-// GetDatabaseURL is a convenience method to get the database URL if stored in secrets
-func (s *SecretsClient) GetDatabaseURL(secretName string) (string, error) {
-	secrets, err := s.GetAppSecrets(secretName)
-	if err != nil {
-		return "", err
-	}
-
-	// Return database URL from secrets if available, otherwise empty string
-	return secrets.DatabaseURL, nil
+	log.Printf("Successfully retrieved individual secret from AWS Secrets Manager: %s", secretName)
+	return *result.SecretString, nil
 }
