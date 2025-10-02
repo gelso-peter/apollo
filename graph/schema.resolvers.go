@@ -260,9 +260,9 @@ func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.G
 
 		// Selection logic
 		isPast := commenceTime.Before(time.Now().UTC())
-		within24hrs := commenceTime.Sub(time.Now().UTC()) <= 24*time.Hour
+		within12hrs := commenceTime.Sub(time.Now().UTC()) <= 12*time.Hour
 
-		isSelectable := !isPast && within24hrs
+		isSelectable := !isPast && within12hrs
 
 		home := game.Spreads.HomeTeam
 		away := game.Spreads.AwayTeam

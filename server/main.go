@@ -97,13 +97,15 @@ func main() {
 
 	mainMux.Handle("/api/", http.StripPrefix("/api", restRouter))
 
-	// Create HTTP server instance
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-	})
+        AllowedOrigins: []string{
+          "http://localhost:3000",
+          "https://d3433gdnd1l0b4.cloudfront.net",
+        },
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        AllowedHeaders: []string{"Content-Type", "Authorization"},
+        AllowCredentials: true,
+      })
 
 	srv := &http.Server{
 		Addr:    ":" + port,
