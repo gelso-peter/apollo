@@ -1,15 +1,72 @@
-# Ignore Go build artifacts
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Development files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts and binaries
 /bin/
+main
 *.exe
 *.out
 
-# Ignore Go-specific directories
+# Go-specific directories
 /pkg/
 vendor/
 
-# Ignore IDE and OS files
-*.env
-*.log
-*.swp
-.DS_Store
-.idea/
+# Test files
+*_test.go
+**/*_test.go
+
+# Docker files
+docker-compose.yml
+docker-compose.yaml
+Dockerfile*
+
+# AWS deployment files
+aws/
+lambda/
+*.sh
+
+# Development dependencies
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+coverage.html

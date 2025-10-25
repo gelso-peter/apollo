@@ -8,10 +8,13 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-func RunMigrations() {
+func RunMigrations(dbURL string) {
+	// Use the provided database URL (from main.go which handles AWS Secrets Manager)
+	log.Printf("Running migrations with database URL: %s", dbURL)
+
 	m, err := migrate.New(
 		"file:///app/migrations",
-		"postgres://postgres:password@postgres:5432/apollo?sslmode=disable",
+		dbURL,
 	)
 
 	if err != nil {

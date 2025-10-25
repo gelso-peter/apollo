@@ -216,28 +216,11 @@ func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.G
 		return nil, fmt.Errorf("Unauthorized")
 	}
 
-	// UNCOMMENT WHEN NFL IS READY
-	// now := time.Now().UTC()
-	// seasonWeekData, err := GetCurrentWeekData(ctx, r.DB, "football", 2025, 2026) // TODO: make these params
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to fetch week id %w", err)
-	// }
-
-	// seasonWeekEndAsTime, err := time.Parse(time.RFC3339, seasonWeekData.WeekEnd)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error week end time")
-	// }
-
-	// // Format RFC3339 for API
-	// from := now.Format(time.RFC3339)
-	// to := seasonWeekEndAsTime.Format(time.RFC3339)
-
-	// THIS TEST MLB FOR NOW
 	now := time.Now().UTC()
-	oneDayFromNow := now.Add(24 * time.Hour)
+	twelveHoursFromNow := now.Add(12 * time.Hour)
 
 	//Get games from Odds API (returns []Game with Spreads)
-	games, err := r.OddsService.GetNFLGames(now.Format(time.RFC3339), oneDayFromNow.Format(time.RFC3339))
+	games, err := r.OddsService.GetNFLGames(now.Format(time.RFC3339), twelveHoursFromNow.Format(time.RFC3339))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch NFL games: %w", err)
 	}
@@ -260,9 +243,9 @@ func (r *queryResolver) GetWeeklyNflGameSpreads(ctx context.Context) ([]*model.G
 
 		// Selection logic
 		isPast := commenceTime.Before(time.Now().UTC())
-		within24hrs := commenceTime.Sub(time.Now().UTC()) <= 24*time.Hour
+		within12hrs := commenceTime.Sub(time.Now().UTC()) <= 12*time.Hour
 
-		isSelectable := !isPast && within24hrs
+		isSelectable := !isPast && within12hrs
 
 		home := game.Spreads.HomeTeam
 		away := game.Spreads.AwayTeam

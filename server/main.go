@@ -6,9 +6,9 @@ import (
 	"apollo/graph"
 	"apollo/middleware"
 	"apollo/router"
-	"apollo/services/cron"
 	"apollo/services/odds.go"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -26,43 +26,42 @@ import (
 const defaultPort = "8080"
 
 func main() {
+	// Check if running in health check mode
+	if len(os.Args) > 1 && os.Args[1] == "--health-check" {
+		healthCheck()
+		return
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
 	}
 
+	// Get ODDS_API_KEY from environment variable
+	// In App Runner: automatically populated from Secrets Manager
+	// In local dev: loaded from .env file
 	oddsApiKey := os.Getenv("ODDS_API_KEY")
 	if oddsApiKey == "" {
-		log.Fatal("Missing ODDS_API_KEY")
+		log.Fatal("Missing ODDS_API_KEY environment variable")
 	}
 
+	// Get DATABASE_URL from environment variable
+	// In App Runner: automatically populated from Secrets Manager
+	// In local dev: loaded from .env file
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		log.Fatal("Missing DATABASE_URL")
+		log.Fatal("Missing DATABASE_URL environment variable")
 	}
 
 	db.ConnectDB()
 	defer db.CloseDB()
-	migrations.RunMigrations()
+	migrations.RunMigrations(dbURL)
 
 	odds.InitOddsService(oddsApiKey)
 	oddsService := odds.GetOddsService()
 
-	// Setup cron job for game finalization
-	gameFinalizer := cron.NewGameFinalizer(db.DB, oddsService)
-	cronStop := make(chan struct{})
-
-	// Run game finalizer immediately on server start
-	go func() {
-		log.Println("Running game finalizer immediately on server start")
-		if err := gameFinalizer.FinalizeGames(); err != nil {
-			log.Printf("Error during immediate game finalization: %v", err)
-		}
-	}()
-
-	// Run cron job on specific days at 6:00 AM
-	go gameFinalizer.RunPeriodically(cronStop)
-	log.Println("Game finalization cron job started (runs Fri/Sun/Mon/Tue at 6:00 AM)")
+	// Note: Game finalization is now handled by AWS Lambda function
+	log.Println("Game finalization is handled by AWS Lambda (runs Fri/Sun/Mon/Tue at 6:00 AM)")
 
 	// Setup GraphQL server
 	graphResolvers := &graph.Resolver{
@@ -83,6 +82,12 @@ func main() {
 	// Setup REST and GraphQL together in one mux
 	mainMux := http.NewServeMux()
 
+	// Health check endpoint
+	mainMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
 	// GraphQL routes
 	mainMux.Handle("/query", protectedGraphQL)
 	mainMux.Handle("/", playground.Handler("GraphQL playground", "/query"))
@@ -92,13 +97,15 @@ func main() {
 
 	mainMux.Handle("/api/", http.StripPrefix("/api", restRouter))
 
-	// Create HTTP server instance
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-	})
+        AllowedOrigins: []string{
+          "http://localhost:3000",
+          "https://d3433gdnd1l0b4.cloudfront.net",
+        },
+        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+        AllowedHeaders: []string{"Content-Type", "Authorization"},
+        AllowCredentials: true,
+      })
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -114,10 +121,10 @@ func main() {
 	}()
 
 	// Wait for interrupt signal and gracefully shutdown the server
-	gracefulShutdown(srv, cronStop)
+	gracefulShutdown(srv)
 }
 
-func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
+func gracefulShutdown(srv *http.Server) {
 	// Channel to listen for termination signals
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
@@ -126,10 +133,6 @@ func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
 	<-stop
 
 	log.Println("Shutting down server...")
-
-	// Stop the cron job first
-	close(cronStop)
-	log.Println("Cron job stopped")
 
 	// Context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -140,4 +143,27 @@ func gracefulShutdown(srv *http.Server, cronStop chan struct{}) {
 	}
 
 	log.Println("Server exited properly")
+}
+
+// healthCheck performs a simple health check for Docker HEALTHCHECK
+func healthCheck() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = defaultPort
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%s/health", port))
+	if err != nil {
+		log.Printf("Health check failed: %v", err)
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Health check failed with status: %d", resp.StatusCode)
+		os.Exit(1)
+	}
+
+	log.Println("Health check passed")
+	os.Exit(0)
 }

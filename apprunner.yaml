@@ -1,0 +1,21 @@
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Building Apollo application..."
+      - docker build -t apollo .
+run:
+  runtime-version: latest
+  command: ./server
+  network:
+    port: 8080
+  env:
+    - name: PORT
+      value: "8080"
+    - name: DATABASE_URL
+      value: "postgres://username:password@your-rds-endpoint.region.rds.amazonaws.com:5432/apollo?sslmode=require"
+    - name: AWS_SECRET_NAME
+      value: "apollo/api-keys"
+    - name: JWT_SECRET
+      value: "your-production-jwt-secret"
