@@ -10,12 +10,12 @@ Currently only availble during the american football seasons and for select user
 Tracks sports betting picks for groups. Users join leagues, record picks against NFL spreads, and compare results. Odds data is fetched on-demand from The Odds API and game finalization runs on a schedule via AWS Lambda.
 
 ### Tech Stack
-**Backend**: Go 1.24, GraphQL (gqlgen), REST (gorilla/mux)
-**Database**: PostgreSQL (pgx), migrations (golang-migrate)
-**Auth**: JWT (golang-jwt/jwt), bcrypt
-**Frontend**: React
-**Infrastructure**: AWS App Runner, Lambda, RDS, Secrets Manager, ECR, Docker
-**Tooling**: Docker Compose
+- **Backend**: Go 1.24, GraphQL (gqlgen), REST (gorilla/mux)
+- **Database**: PostgreSQL, migrations (golang-migrate)
+- **Auth**: JWT, bcrypt
+- **Frontend**: React
+- **Infrastructure**: AWS App Runner, Lambda, RDS, Secrets Manager, ECR, Docker
+- **Tooling**: Docker Compose
 
 ### Architecture
 Go server exposes GraphQL for picks, seasons, weekly spreads, and leaderboards. REST for auth and league helpers.
